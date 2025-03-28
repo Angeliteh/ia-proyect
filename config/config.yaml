@@ -1,0 +1,58 @@
+system:
+  name: "AI Agent System"
+  version: "0.1.0"
+  log_level: "INFO"
+
+api:
+  host: "127.0.0.1"
+  port: 8000
+  debug: true
+
+memory:
+  vector_db:
+    type: "chromadb"
+    persistence_path: "./data/vector_db"
+  document_db:
+    type: "mongodb"
+    connection_string: ${MONGODB_CONNECTION_STRING}
+    database: ${DATABASE_NAME}
+
+mcp:
+  dispatcher:
+    default_timeout: 30
+    max_retries: 3
+  
+  resource_monitor:
+    check_interval: 5
+    thresholds:
+      cpu_percent: 85
+      memory_percent: 80
+      gpu_memory_percent: 90
+
+agents:
+  default_model: "local"
+  models:
+    local:
+      type: "mistral"
+      path: "./models/mistral-7b-instruct.Q4_K_M.gguf"
+      context_length: 8192
+    cloud:
+      type: "openai"
+      model: "gpt-4o"
+      api_key_env: "OPENAI_API_KEY"
+  
+  types:
+    - id: "pc_control"
+      name: "PC Control Agent"
+      description: "Agent for controlling PC operations"
+      model: "local"
+    
+    - id: "programming"
+      name: "Programming Agent"
+      description: "Agent for code generation and analysis"
+      model: "local"
+    
+    - id: "science"
+      name: "Science Agent"
+      description: "Agent for scientific discussions"
+      model: "cloud" 

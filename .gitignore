@@ -1,0 +1,55 @@
+# Archivos de entorno y credenciales
+.env
+.env.*
+*.pem
+*.key
+
+# Archivos de modelos pesados
+*.gguf
+*.ggml
+*.bin
+*.pt
+*.pth
+*.safetensors
+models/local/*
+!models/local/.gitkeep
+
+# Directorios de caché y logs
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+logs/
+*.log
+
+# Entornos virtuales
+venv/
+env/
+ENV/
+.venv/
+
+# Archivos de IDE/editores
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Archivos de notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Distribución / empaquetado
+dist/
+build/
+*.egg-info/
+
+# Archivos de base de datos
+*.db
+*.sqlite3
+*.sqlite
+chromadb/
+
+# Archivos generados por el sistema
+.coverage
+htmlcov/ 
