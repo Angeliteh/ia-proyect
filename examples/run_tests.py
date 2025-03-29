@@ -68,7 +68,7 @@ TEST_CONFIG = {
         "code": {
             "module": "code_agent_example.py",
             "dir": ".",
-            "args": "--task generate --model gemini-pro",
+            "args": "--task generate --model gemini-2.0-flash",
             "expected_result": 0
         },
         "system": {
@@ -81,6 +81,18 @@ TEST_CONFIG = {
             "module": "system_agent_example.py",
             "dir": ".",
             "args": "--task files",
+            "expected_result": 0
+        },
+        "communication": {
+            "module": "agent_communication_example.py",
+            "dir": ".",
+            "args": "--test echo",
+            "expected_result": 0
+        },
+        "communication_chain": {
+            "module": "agent_communication_example.py",
+            "dir": ".",
+            "args": "--test chain",
             "expected_result": 0
         }
     }

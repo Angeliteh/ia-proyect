@@ -68,6 +68,9 @@ class BaseAgent(ABC):
         
         # Track agent state
         self.state = "idle"
+        
+        # Communication-related attributes
+        self._comm_registered = False
     
     @abstractmethod
     async def process(self, query: str, context: Optional[Dict] = None) -> AgentResponse:
@@ -133,4 +136,87 @@ class BaseAgent(ABC):
         
         self.logger.info(f"Agent state changing from '{self.state}' to '{new_state}'")
         self.state = new_state
-        return True 
+        return True
+    
+    async def register_with_communicator(self) -> None:
+        """
+        Register this agent with the global communicator.
+        
+        This is done lazily to avoid circular imports.
+        """
+        if self._comm_registered:
+            return
+        
+        # Import here to avoid circular imports
+        from .agent_communication import communicator
+        
+        # Register with communicator
+        communicator.register_agent(self)
+        
+        # Register a message handler
+        communicator.register_message_handler(self.agent_id, self._handle_message)
+        
+        self._comm_registered = True
+        self.logger.info(f"Agent {self.agent_id} registered with communicator")
+    
+    async def _handle_message(self, message) -> None:
+        """
+        Handle an incoming message by processing it as a query.
+        
+        Args:
+            message: The Message object to handle
+        """
+        # Import here to avoid circular imports
+        from .agent_communication import Message, MessageType
+        
+        self.logger.info(f"Handling message from {message.sender_id}: {message.content[:50]}...")
+        
+        # Process the message as a query
+        response = await self.process(message.content, message.context)
+        
+        # Create a response message
+        response_msg = message.create_response(
+            content=response.content,
+            context=response.metadata
+        )
+        
+        # Set appropriate message type based on response status
+        if response.status != "success":
+            response_msg.msg_type = MessageType.ERROR
+        
+        # Send the response
+        from .agent_communication import communicator
+        await communicator.send_message(response_msg)
+    
+    async def send_request_to_agent(
+        self, 
+        receiver_id: str, 
+        content: str, 
+        context: Optional[Dict] = None,
+        timeout: float = 10.0
+    ) -> Optional[AgentResponse]:
+        """
+        Send a request to another agent and wait for a response.
+        
+        Args:
+            receiver_id: ID of the receiving agent
+            content: Content of the request
+            context: Optional context for the request
+            timeout: Timeout in seconds
+            
+        Returns:
+            Response from the receiving agent or None if timed out
+        """
+        # Ensure we're registered with the communicator
+        await self.register_with_communicator()
+        
+        # Import here to avoid circular imports
+        from .agent_communication import send_agent_request
+        
+        return await send_agent_request(
+            sender_id=self.agent_id,
+            receiver_id=receiver_id,
+            content=content,
+            context=context,
+            timeout=timeout
+        ) 

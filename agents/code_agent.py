@@ -36,14 +36,19 @@ class CodeAgent(BaseAgent):
         Args:
             agent_id: Unique identifier for the agent
             config: Configuration dictionary containing:
-                - model: Name of the model to use
-                - supported_languages: List of supported programming languages
+                - model_manager: Instance of ModelManager (optional)
+                - default_model: Name of the default model to use (optional)
+                - supported_languages: List of supported programming languages (optional)
         """
         super().__init__(agent_id, config)
         
-        # Set up model for code generation/analysis
-        self.model_name = config.get("model", "gpt-3.5-turbo")
-        self.model_manager = ModelManager(config_path="ia-proyect/config/models.json")
+        # Use the provided model manager or create a new one
+        self.model_manager = config.get("model_manager")
+        if not self.model_manager:
+            self.model_manager = ModelManager()
+            
+        # Set the default model name
+        self.model_name = config.get("default_model", "gemini-2.0-flash")
         
         # Track supported languages
         self.supported_languages = config.get(
@@ -78,8 +83,8 @@ class CodeAgent(BaseAgent):
         self.logger.info(f"Processing code task: {task} (language: {language})")
         
         try:
-            # Get the model
-            model = await self.model_manager.get_model(self.model_name)
+            # Load the model
+            model, model_info = await self.model_manager.load_model(self.model_name)
             
             # Build prompt based on the task
             prompt = self._build_prompt(query, task, language, code)
