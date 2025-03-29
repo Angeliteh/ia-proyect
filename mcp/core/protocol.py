@@ -170,8 +170,21 @@ class MCPMessage:
             timestamp: Marca de tiempo (generada automáticamente si no se proporciona)
         """
         self.id = message_id or str(uuid.uuid4())
+        
+        # Convertir action si es una cadena
         self.action = action if isinstance(action, MCPAction) else MCPAction(action)
-        self.resource_type = resource_type if isinstance(resource_type, MCPResource) else MCPResource(resource_type)
+        
+        # Convertir resource_type si es una cadena y está en la enumeración MCPResource
+        if isinstance(resource_type, MCPResource):
+            self.resource_type = resource_type
+        else:
+            # Intentar convertir a MCPResource, pero si falla, mantener como cadena
+            try:
+                self.resource_type = MCPResource(resource_type)
+            except ValueError:
+                # Si no es un valor válido de MCPResource, mantenerlo como cadena
+                self.resource_type = resource_type
+                
         self.resource_path = resource_path
         self.data = data or {}
         self.auth_token = auth_token
@@ -188,7 +201,7 @@ class MCPMessage:
             "id": self.id,
             "action": self.action.value,
             "resource": {
-                "type": self.resource_type.value,
+                "type": self.resource_type.value if isinstance(self.resource_type, MCPResource) else self.resource_type,
                 "path": self.resource_path
             },
             "data": self.data,
@@ -463,62 +476,4 @@ class MCPResponse(Generic[T]):
             Instancia de MCPResponse con success=False
         """
         error = MCPError(code=code, message=message, details=details)
-        return cls(success=False, message_id=message_id, error=error)
-
-
-class MCPResponse:
-    """
-    Representa una respuesta en el protocolo MCP.
-    
-    Attributes:
-        message_id: ID del mensaje al que responde
-        status: Estado de la respuesta (success o error)
-        data: Datos de la respuesta
-        error: Mensaje de error si status es error
-    """
-    
-    def __init__(
-        self,
-        message_id: str,
-        status: str,
-        data: Optional[Dict[str, Any]] = None,
-        error: Optional[str] = None
-    ):
-        """
-        Inicializa una respuesta MCP.
-        
-        Args:
-            message_id: ID del mensaje al que responde
-            status: Estado de la respuesta (success o error)
-            data: Datos de la respuesta
-            error: Mensaje de error si status es error
-        """
-        self.message_id = message_id
-        self.status = status
-        self.data = data
-        self.error = error
-        self.timestamp = datetime.datetime.now()
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Convierte la respuesta a un diccionario para transmisión.
-        
-        Returns:
-            Diccionario con la información de la respuesta
-        """
-        return {
-            "message_id": self.message_id,
-            "status": self.status,
-            "data": self.data,
-            "error": self.error,
-            "timestamp": self.timestamp.isoformat()
-        }
-    
-    def to_json(self) -> str:
-        """
-        Convierte la respuesta a una cadena JSON.
-        
-        Returns:
-            Cadena JSON con la información de la respuesta
-        """
-        return json.dumps(self.to_dict()) 
+        return cls(success=False, message_id=message_id, error=error) 

@@ -9,7 +9,7 @@ import os
 import sys
 import asyncio
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 
 # Configurar logging
 logging.basicConfig(
@@ -174,6 +174,98 @@ class DirectClient(MCPClientBase):
         
         # Enviar mensaje directamente al servidor
         return await self.server.process_message(message)
+        
+    async def ping(self) -> bool:
+        """
+        Verifica la disponibilidad del servidor. Versión asíncrona.
+        
+        Returns:
+            True si el servidor está disponible, False en caso contrario
+        """
+        try:
+            message = MCPMessage.create_ping()
+            message.auth_token = self.auth_token
+            
+            response = await self.send_message(message)
+            return response.success
+        except Exception as e:
+            self.logger.error(f"Error en ping: {str(e)}")
+            return False
+            
+    async def get_capabilities(self) -> Dict[str, Any]:
+        """
+        Obtiene las capacidades del servidor. Versión asíncrona.
+        
+        Returns:
+            Diccionario con las capacidades del servidor
+            
+        Raises:
+            MCPError: Si ocurre un error al obtener las capacidades
+        """
+        message = MCPMessage.create_capabilities_request()
+        message.auth_token = self.auth_token
+        
+        response = await self.send_message(message)
+        
+        if not response.success:
+            raise MCPError(
+                code=response.error.code if response.error else MCPErrorCode.SERVER_ERROR,
+                message=f"Error obteniendo capacidades: {response.error.message if response.error else 'Error desconocido'}"
+            )
+        
+        self._server_capabilities = response.data
+        return self._server_capabilities
+    
+    async def get_resource(self, resource_type: Union[MCPResource, str], resource_path: str, **params) -> MCPResponse:
+        """
+        Obtiene un recurso del servidor. Versión asíncrona.
+        
+        Args:
+            resource_type: Tipo de recurso
+            resource_path: Ruta del recurso
+            **params: Parámetros adicionales para la solicitud
+            
+        Returns:
+            Respuesta del servidor
+            
+        Raises:
+            MCPError: Si ocurre un error en la comunicación
+        """
+        message = MCPMessage.create_get_request(
+            resource_type=resource_type,
+            resource_path=resource_path,
+            params=params
+        )
+        message.auth_token = self.auth_token
+        
+        return await self.send_message(message)
+    
+    async def search_resources(self, resource_type: Union[MCPResource, str], query: str, **params) -> MCPResponse:
+        """
+        Busca recursos en el servidor. Versión asíncrona.
+        
+        Args:
+            resource_type: Tipo de recurso
+            query: Consulta de búsqueda
+            **params: Parámetros adicionales para la búsqueda
+            
+        Returns:
+            Respuesta del servidor
+            
+        Raises:
+            MCPError: Si ocurre un error en la comunicación
+        """
+        all_params = params.copy()
+        all_params["query"] = query
+        
+        message = MCPMessage.create_search_request(
+            resource_type=resource_type,
+            query=query,
+            params=params
+        )
+        message.auth_token = self.auth_token
+        
+        return await self.send_message(message)
 
 
 async def run_example():
@@ -257,7 +349,13 @@ async def run_example():
         logger.exception(f"Error en el ejemplo: {e}")
     finally:
         # Cerrar el subsistema MCP
-        await shutdown_mcp()
+        await async_shutdown_mcp()
+
+
+async def async_shutdown_mcp():
+    """Versión asíncrona de shutdown_mcp para usar con await."""
+    shutdown_mcp()
+    return None
 
 
 if __name__ == "__main__":

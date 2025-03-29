@@ -24,18 +24,13 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from dotenv import load_dotenv
 
 # Agregar el directorio padre al path para poder importar los módulos
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, parent_dir)
 
-from mcp import (
-    MCPMessage, 
-    MCPResponse, 
-    MCPAction, 
-    MCPResource,
-    MCPHttpClient,
-    initialize_mcp, 
-    shutdown_mcp, 
-    get_registry
-)
+# Importación directa de los módulos locales
+from mcp.core.protocol import MCPMessage, MCPResponse, MCPAction, MCPResource
+from mcp.core.init import initialize_mcp, shutdown_mcp, get_registry
+from mcp.connectors.http_client import MCPHttpClient
 
 # Configurar logging
 logging.basicConfig(

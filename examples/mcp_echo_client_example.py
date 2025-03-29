@@ -13,19 +13,14 @@ import logging
 import time
 
 # Agregar el directorio padre al path para poder importar los módulos
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, parent_dir)
 
-from mcp import (
-    MCPMessage, 
-    MCPResponse, 
-    MCPAction, 
-    MCPResource, 
-    MCPServerBase, 
-    MCPClientBase,
-    initialize_mcp, 
-    shutdown_mcp, 
-    get_registry
-)
+# Importación directa de los módulos locales
+from mcp.core.protocol import MCPMessage, MCPResponse, MCPAction, MCPResource, MCPError, MCPErrorCode
+from mcp.core.server_base import MCPServerBase
+from mcp.core.client_base import MCPClientBase
+from mcp.core.init import initialize_mcp, shutdown_mcp, get_registry
 
 # Configurar logging
 logging.basicConfig(
@@ -65,8 +60,7 @@ class EchoServer(MCPServerBase):
         logger.info(f"Servidor recibió mensaje: {message.action} - {message.resource_type}")
         
         if message.action == MCPAction.PING:
-            return MCPResponse(
-                success=True,
+            return MCPResponse.success_response(
                 message_id=message.id,
                 data={"status": "ok", "timestamp": time.time()}
             )
@@ -86,8 +80,7 @@ class EchoServer(MCPServerBase):
                 else:
                     resources.append(str(resource))
                 
-            return MCPResponse(
-                success=True,
+            return MCPResponse.success_response(
                 message_id=message.id,
                 data={
                     "actions": actions,
@@ -101,13 +94,10 @@ class EchoServer(MCPServerBase):
         elif message.action == MCPAction.SEARCH:
             query = message.data.get("query", "")
             if not query:
-                return MCPResponse(
-                    success=False,
+                return MCPResponse.error_response(
                     message_id=message.id,
-                    error={
-                        "code": "invalid_request",
-                        "message": "Falta el parámetro query"
-                    }
+                    code="invalid_request",
+                    message="Falta el parámetro query"
                 )
             
             # Crear resultados de búsqueda de prueba
@@ -121,8 +111,7 @@ class EchoServer(MCPServerBase):
                     "url": f"https://example.com/result/{i+1}"
                 })
             
-            return MCPResponse(
-                success=True,
+            return MCPResponse.success_response(
                 message_id=message.id,
                 data={
                     "query": query,
@@ -133,8 +122,7 @@ class EchoServer(MCPServerBase):
         
         elif message.action == MCPAction.GET:
             if message.resource_type == "web_search":
-                return MCPResponse(
-                    success=True,
+                return MCPResponse.success_response(
                     message_id=message.id,
                     data={
                         "status": "ok",
@@ -142,23 +130,17 @@ class EchoServer(MCPServerBase):
                     }
                 )
             else:
-                return MCPResponse(
-                    success=False,
+                return MCPResponse.error_response(
                     message_id=message.id,
-                    error={
-                        "code": "resource_not_found",
-                        "message": f"Recurso no encontrado: {message.resource_type}"
-                    }
+                    code="resource_not_found",
+                    message=f"Recurso no encontrado: {message.resource_type}"
                 )
         
         else:
-            return MCPResponse(
-                success=False,
+            return MCPResponse.error_response(
                 message_id=message.id,
-                error={
-                    "code": "not_implemented",
-                    "message": f"Acción no implementada: {message.action}"
-                }
+                code="not_implemented",
+                message=f"Acción no implementada: {message.action}"
             )
 
 # Implementar un cliente MCP directo
@@ -186,13 +168,10 @@ class DirectClient(MCPClientBase):
     def send_message(self, message):
         """Envía un mensaje al servidor y devuelve la respuesta."""
         if not self.is_connected:
-            return MCPResponse(
-                success=False,
+            return MCPResponse.error_response(
                 message_id=message.id,
-                error={
-                    "code": "not_connected",
-                    "message": "Cliente no conectado al servidor"
-                }
+                code="not_connected",
+                message="Cliente no conectado al servidor"
             )
         
         return self.server.handle_action(message)

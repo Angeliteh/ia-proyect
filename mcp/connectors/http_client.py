@@ -116,12 +116,10 @@ class MCPHttpClient(MCPClientBase):
         if not self.is_connected or not self.session:
             error_msg = "Cliente no conectado al servidor MCP"
             logger.error(error_msg)
-            return MCPResponse(
-                success=False,
-                error=MCPError(
-                    code=MCPErrorCode.CONNECTION_ERROR,
-                    message=error_msg
-                )
+            return MCPResponse.error_response(
+                message_id=message.id,
+                code=MCPErrorCode.CONNECTION_ERROR,
+                message=error_msg
             )
         
         try:
@@ -142,46 +140,47 @@ class MCPHttpClient(MCPClientBase):
                 try:
                     response_data = response.json()
                     logger.debug(f"Respuesta recibida: {response_data}")
-                    return MCPResponse.from_dict(response_data)
+                    
+                    # Si los datos contienen success, error y message_id, es un MCPResponse
+                    if isinstance(response_data, dict) and "message_id" in response_data:
+                        return MCPResponse.from_dict(response_data)
+                    else:
+                        # Si no, creamos un nuevo MCPResponse
+                        return MCPResponse.success_response(
+                            message_id=message.id,
+                            data=response_data
+                        )
                 except json.JSONDecodeError:
                     error_msg = "Error al decodificar la respuesta JSON"
                     logger.error(f"{error_msg}: {response.text}")
-                    return MCPResponse(
-                        success=False,
-                        error=MCPError(
-                            code=MCPErrorCode.INVALID_RESPONSE,
-                            message=error_msg
-                        )
-                    )
-            else:
-                error_msg = f"Error HTTP {response.status_code}"
-                logger.error(f"{error_msg}: {response.text}")
-                return MCPResponse(
-                    success=False,
-                    error=MCPError(
-                        code=MCPErrorCode.SERVER_ERROR,
+                    return MCPResponse.error_response(
+                        message_id=message.id,
+                        code=MCPErrorCode.INVALID_RESPONSE,
                         message=error_msg
                     )
+            else:
+                error_msg = f"Error HTTP {response.status_code}: {response.text}"
+                logger.error(error_msg)
+                return MCPResponse.error_response(
+                    message_id=message.id,
+                    code=MCPErrorCode.SERVER_ERROR,
+                    message=error_msg
                 )
         except requests.Timeout:
             error_msg = f"Tiempo de espera agotado (timeout: {self.timeout}s)"
             logger.error(error_msg)
-            return MCPResponse(
-                success=False,
-                error=MCPError(
-                    code=MCPErrorCode.TIMEOUT,
-                    message=error_msg
-                )
+            return MCPResponse.error_response(
+                message_id=message.id,
+                code=MCPErrorCode.TIMEOUT,
+                message=error_msg
             )
         except Exception as e:
             error_msg = f"Error de comunicación: {str(e)}"
             logger.error(error_msg)
-            return MCPResponse(
-                success=False,
-                error=MCPError(
-                    code=MCPErrorCode.UNKNOWN_ERROR,
-                    message=error_msg
-                )
+            return MCPResponse.error_response(
+                message_id=message.id,
+                code=MCPErrorCode.UNKNOWN_ERROR,
+                message=error_msg
             )
             
     def ping(self) -> MCPResponse:

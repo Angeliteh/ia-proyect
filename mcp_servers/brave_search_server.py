@@ -73,11 +73,10 @@ class BraveSearchMCPServer:
         try:
             # Verificar que tenemos una API key válida
             if not self.api_key:
-                return MCPResponse(
+                return MCPResponse.error_response(
                     message_id=message.id,
-                    status="error",
-                    error="No se ha proporcionado una API key para Brave Search",
-                    data=None
+                    code=MCPErrorCode.INVALID_API_KEY,
+                    message="No se ha proporcionado una API key para Brave Search"
                 )
 
             # Procesar según la acción
@@ -88,28 +87,24 @@ class BraveSearchMCPServer:
             elif message.action == "search":
                 return self._handle_search(message)
             else:
-                return MCPResponse(
+                return MCPResponse.error_response(
                     message_id=message.id,
-                    status="error",
-                    error=f"Acción no soportada: {message.action}",
-                    data=None
+                    code=MCPErrorCode.INVALID_ACTION,
+                    message=f"Acción no soportada: {message.action}"
                 )
         except Exception as e:
             logging.error(f"Error al procesar mensaje: {e}", exc_info=True)
-            return MCPResponse(
+            return MCPResponse.error_response(
                 message_id=message.id,
-                status="error",
-                error=f"Error interno del servidor: {str(e)}",
-                data=None
+                code=MCPErrorCode.SERVER_ERROR,
+                message=f"Error interno del servidor: {str(e)}"
             )
     
     def _handle_ping(self, message: MCPMessage) -> MCPResponse:
         """Maneja la acción PING."""
-        return MCPResponse(
+        return MCPResponse.success_response(
             message_id=message.id,
-            status="success",
-            data={"status": "ok"},
-            error=None
+            data={"status": "ok"}
         )
     
     def _handle_capabilities(self, message: MCPMessage) -> MCPResponse:
@@ -122,11 +117,9 @@ class BraveSearchMCPServer:
             "description": "Servidor MCP para Brave Search API"
         }
         
-        return MCPResponse(
+        return MCPResponse.success_response(
             message_id=message.id,
-            status="success",
-            data=capabilities,
-            error=None
+            data=capabilities
         )
     
     def _handle_search(self, message: MCPMessage) -> MCPResponse:
@@ -143,11 +136,10 @@ class BraveSearchMCPServer:
         data = message.data or {}
         
         if not data or not isinstance(data, dict):
-            return MCPResponse(
+            return MCPResponse.error_response(
                 message_id=message.id,
-                status="error",
-                error="Datos de búsqueda no válidos",
-                data=None
+                code=MCPErrorCode.INVALID_REQUEST,
+                message="Datos de búsqueda no válidos"
             )
         
         # Obtener parámetros de búsqueda
@@ -155,11 +147,10 @@ class BraveSearchMCPServer:
         query = data.get("query", "")
         
         if not query:
-            return MCPResponse(
+            return MCPResponse.error_response(
                 message_id=message.id,
-                status="error",
-                error="No se ha proporcionado una consulta de búsqueda",
-                data=None
+                code=MCPErrorCode.INVALID_REQUEST,
+                message="No se ha proporcionado una consulta de búsqueda"
             )
         
         # Realizar búsqueda según el tipo de recurso
@@ -179,18 +170,15 @@ class BraveSearchMCPServer:
             
             # Verificar si hay error
             if "error" in results:
-                return MCPResponse(
+                return MCPResponse.error_response(
                     message_id=message.id,
-                    status="error",
-                    error=results["error"],
-                    data=None
+                    code=MCPErrorCode.SEARCH_ERROR,
+                    message=results["error"]
                 )
             
-            return MCPResponse(
+            return MCPResponse.success_response(
                 message_id=message.id,
-                status="success",
-                data=results,
-                error=None
+                data=results
             )
             
         elif resource_type == "local_search":
@@ -210,11 +198,10 @@ class BraveSearchMCPServer:
             
             # Verificar si hay error
             if "error" in results:
-                return MCPResponse(
+                return MCPResponse.error_response(
                     message_id=message.id,
-                    status="error",
-                    error=results["error"],
-                    data=None
+                    code=MCPErrorCode.SEARCH_ERROR,
+                    message=results["error"]
                 )
             
             # Si no hay resultados y se permite fallback, usar web_search
@@ -230,37 +217,31 @@ class BraveSearchMCPServer:
                 
                 # Verificar si hay error en fallback
                 if "error" in fallback_results:
-                    return MCPResponse(
+                    return MCPResponse.error_response(
                         message_id=message.id,
-                        status="error",
-                        error=fallback_results["error"],
-                        data=None
+                        code=MCPErrorCode.SEARCH_ERROR,
+                        message=fallback_results["error"]
                     )
                 
                 # Añadir información de fallback
                 fallback_results["is_fallback"] = True
                 fallback_results["original_type"] = "local_search"
                 
-                return MCPResponse(
+                return MCPResponse.success_response(
                     message_id=message.id,
-                    status="success",
-                    data=fallback_results,
-                    error=None
+                    data=fallback_results
                 )
             
-            return MCPResponse(
+            return MCPResponse.success_response(
                 message_id=message.id,
-                status="success",
-                data=results,
-                error=None
+                data=results
             )
         
         else:
-            return MCPResponse(
+            return MCPResponse.error_response(
                 message_id=message.id,
-                status="error",
-                error=f"Tipo de recurso no soportado: {resource_type}",
-                data=None
+                code=MCPErrorCode.INVALID_RESOURCE,
+                message=f"Tipo de recurso no soportado: {resource_type}"
             )
     
     def _perform_web_search(self, query, count=10, search_lang="es", country="ES", offset=0):
@@ -467,7 +448,7 @@ class BraveSearchHTTPHandler(BaseHTTPRequestHandler):
             self._set_headers()
             # Crear un mensaje MCP para simular un ping
             ping_message = MCPMessage.create_ping()
-            ping_response = self.server_instance._handle_ping(ping_message.id)
+            ping_response = self.server_instance._handle_ping(ping_message)
             self.wfile.write(json.dumps(ping_response.to_dict()).encode('utf-8'))
         else:
             self._return_error(404, "Ruta no encontrada")
