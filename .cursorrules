@@ -1,0 +1,244 @@
+# Sistema de Agentes IA con MCP
+project:
+  name: "ai-agent-system"
+  description: "Sistema modular de agentes IA basado en Model Context Protocol (MCP)"
+
+# Reglas de nombrado
+naming:
+  classes: "PascalCase"
+  methods: "snake_case"
+  variables: "snake_case"
+  constants: "UPPER_SNAKE_CASE"
+  files: "snake_case.py"
+  directories: "snake_case"
+
+# Estructura de directorios
+structure:
+  root_directories:
+    - "mcp"              # Implementación del Model Context Protocol
+      - "core"           # Núcleo del protocolo (protocol.py, server_base.py, client_base.py, registry.py)
+      - "protocol"       # Definiciones y extensiones del protocolo
+      - "connectors"     # Adaptadores y conectores genéricos
+      - "http"           # Componentes para comunicación HTTP
+    - "mcp_servers"      # Servidores MCP para exponer datos
+      - "brave_search"   # Servidor MCP para Brave Search API
+      - "filesystem"     # Servidor MCP para sistema de archivos
+      - "echo"           # Servidor MCP de prueba (echo)
+    - "mcp_clients"      # Clientes MCP para conectar con servidores
+      - "direct"         # Cliente MCP para conexión directa (in-memory)
+      - "http"           # Cliente MCP para conexión vía HTTP
+      - "brave_search"   # Cliente específico para Brave Search
+    - "agents"           # Implementaciones de agentes
+    - "memory"           # Sistema de memoria compartida
+    - "models"           # Gestores de modelos de IA
+      - "core"           # Núcleo del sistema de modelos (ModelManager, ResourceDetector)
+      - "cloud"          # Modelos de IA en la nube (OpenAI, Anthropic)
+      - "local"          # Modelos locales (archivos .gguf)
+    - "api"              # API central y endpoints
+    - "config"           # Archivos de configuración
+    - "utils"            # Utilidades generales
+    - "tests"            # Pruebas unitarias y de integración
+    - "logs"             # Archivos de log del sistema
+    - "examples"         # Scripts de ejemplo
+      - "mcp"            # Ejemplos de uso del MCP
+      - "models"         # Ejemplos de uso de modelos
+
+# Reglas de documentación
+documentation:
+  required: true
+  docstrings: true
+  readme: true
+  format: "Google Style"
+
+# Reglas de estilo de código
+code_style:
+  line_length: 100
+  indentation: 4
+  quotes: "single"
+  import_order:
+    - "standard_library"
+    - "third_party"
+    - "local_application"
+
+# Configuración de memoria
+memory:
+  persistence:
+    enabled: true
+    type: "sqlite"  # Opciones: sqlite, json, redis, etc.
+    cache_size: 1000
+
+# Configuración de logging
+logging:
+  level: "INFO"  # Opciones: DEBUG, INFO, WARNING, ERROR
+  output: "logs/system.log"
+  format: "[%(asctime)s] [%(levelname)s] %(message)s"
+
+# Configuración de monitoreo
+monitoring:
+  enabled: true
+  metrics: ["cpu_usage", "gpu_usage", "latency"]
+
+# Configuración de API
+api:
+  controllers:
+    - "agent_controller"
+    - "model_controller"
+    - "memory_controller"
+    - "mcp_controller"    # Nuevo controlador para MCP
+  endpoints:
+    - "/agents/{id}/execute"
+    - "/models/{name}/load"
+    - "/memory/save"
+    - "/mcp/servers"       # Nuevo endpoint para listar servidores MCP
+    - "/mcp/connect"       # Nuevo endpoint para conectar a un servidor MCP
+
+# Patrones de arquitectura
+architecture:
+  patterns:
+    - name: "Event-Driven Architecture"
+      description: "Comunicación basada en eventos para reducir acoplamiento entre módulos"
+    - name: "Client-Server MCP Architecture"
+      description: "Arquitectura cliente-servidor para Model Context Protocol"
+    - name: "Registry Pattern"
+      description: "Registro centralizado para gestión de componentes"
+    - name: "Adapter Pattern"
+      description: "Adaptadores para integrar sistemas externos con el protocolo MCP"
+
+# Configuración de MCP
+mcp:
+  protocol_version: "1.0"
+  server:
+    default_port: 8080
+    authentication: true
+  client:
+    timeout: 30
+    retry_attempts: 3
+  core_components:
+    - "protocol"        # Definiciones de mensajes y respuestas
+    - "server_base"     # Clase base para servidores
+    - "client_base"     # Clase base para clientes
+    - "registry"        # Registro central
+  message_actions:
+    - "get"             # Obtener recursos
+    - "list"            # Listar recursos
+    - "search"          # Buscar recursos
+    - "create"          # Crear recursos
+    - "update"          # Actualizar recursos
+    - "delete"          # Eliminar recursos
+    - "ping"            # Verificar disponibilidad
+    - "capabilities"    # Obtener capacidades
+  resource_types:
+    - "file"            # Archivos individuales
+    - "directory"       # Directorios
+    - "web_search"      # Búsqueda web
+    - "local_search"    # Búsqueda local (lugares, negocios, etc.)
+    - "database"        # Bases de datos
+    - "system"          # Información del sistema
+    - "memory"          # Sistema de memoria
+  connectors:
+    - "filesystem"      # Conector al sistema de archivos
+    - "web_search"      # Conector para búsqueda web
+    - "database"        # Conector a bases de datos
+
+# Patrones de implementación MCP
+mcp_patterns:
+  server:
+    base_class: "MCPServerBase"
+    required_methods:
+      - "handle_action"
+    optional_methods:
+      - "validate_auth_token"
+    naming_convention: "{resource}Server"  # Ej: FilesystemServer
+  
+  client:
+    base_class: "MCPClientBase"
+    required_methods:
+      - "connect"
+      - "disconnect"
+      - "send_message"
+    naming_convention: "{type}Client"  # Ej: HttpClient, LocalClient
+
+# Configuración de archivos
+config_files:
+  mcp_config:
+    path: "config/mcp_config.yaml"
+    sections:
+      - "servers"    # Configuración de servidores
+      - "clients"    # Configuración de clientes
+      - "global"     # Configuración global
+    format: "yaml"
+
+# Configuración de modelos
+models:
+  local:
+    formats:
+      - "gguf"          # Formato principal para modelos locales
+    quantization_levels:
+      - "q4_k_m"        # Balance calidad/tamaño (recomendado)
+      - "q5_k_m"        # Mayor calidad
+      - "q3_k_m"        # Mayor compresión 
+      - "q8_0"          # Alta calidad
+  cloud:
+    providers:
+      - "openai"        # Modelos GPT
+      - "anthropic"     # Modelos Claude
+      - "gemini"        # Modelos de Google
+  resource_detection:
+    enabled: true
+    auto_device_selection: true
+    metrics:
+      - "vram_usage"
+      - "ram_usage"
+      - "model_size"
+      - "performance"
+
+# Reglas de agentes
+agents:
+  states:
+    - "idle"
+    - "processing"
+    - "error"
+  transitions:
+    - "idle → processing"
+    - "processing → idle"
+    - "processing → error"
+
+# Reglas de testing
+test_rules:
+  types:
+    - "unit"
+    - "integration"
+    - "load"
+    - "security"
+
+# Reglas específicas de terminal/shell
+shell:
+  windows:
+    mkdir_cmd: "mkdir"
+    mkdir_recursive: "mkdir -Force"
+    create_file: "New-Item -Type File"
+    copy_cmd: "Copy-Item"
+    move_cmd: "Move-Item"
+    path_separator: "\\"
+  unix:
+    mkdir_cmd: "mkdir"
+    mkdir_recursive: "mkdir -p"
+    create_file: "touch"
+    copy_cmd: "cp"
+    move_cmd: "mv"
+    path_separator: "/"
+  preferred: "windows"  # Puede ser "windows" o "unix"
+
+# Reglas específicas para archivos de prueba y temporales
+temp_files:
+  extensions:
+    - ".log"           # Archivos de registro
+    - ".pyc"           # Archivos compilados de Python
+    - ".pyo"           # Archivos optimizados de Python
+    - ".sqlite"        # Bases de datos SQLite
+    - ".db"            # Otras bases de datos
+  directories:
+    - "__pycache__"    # Directorio de caché de Python
+    - "logs"           # Directorio de logs
+    - "venv"           # Entorno virtual de Python
+    - ".venv"          # Entorno virtual alternativo

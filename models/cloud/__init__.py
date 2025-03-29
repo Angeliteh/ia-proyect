@@ -1,11 +1,16 @@
 """
-Modelos en la nube.
+Modelos de IA en la nube.
 
-Este paquete contiene implementaciones de la interfaz ModelInterface
-para modelos en la nube como OpenAI, Anthropic, Gemini, etc.
+Este paquete contiene implementaciones para conectarse con
+servicios de IA en la nube como OpenAI, Anthropic y Google.
 """
 
 from .openai_model import OpenAIModel
 from .anthropic_model import AnthropicModel
+from .gemini_model import GeminiModel
 
-__all__ = ["OpenAIModel", "AnthropicModel"] 
+__all__ = [
+    'OpenAIModel',
+    'AnthropicModel',
+    'GeminiModel'
+] 

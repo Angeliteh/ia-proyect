@@ -49,6 +49,14 @@
       "description": "Modelo más avanzado de Anthropic, excelente para tareas complejas"
     },
     {
+      "name": "gemini-2.0-flash",
+      "model_type": "gemini",
+      "local": false,
+      "api_key_env": "GOOGLE_API_KEY",
+      "context_length": 32768,
+      "description": "Modelo de Google Gemini 2.0 Flash, rápido y eficiente para generación de texto"
+    },
+    {
       "name": "phi-2",
       "model_type": "phi",
       "local": true,

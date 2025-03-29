@@ -625,18 +625,29 @@ class ModelManager:
     
     async def _load_gemini_model(self, model_info: ModelInfo) -> ModelInterface:
         """
-        Carga un modelo Gemini.
+        Carga un modelo de Google Gemini.
         
         Args:
-            model_info: Información del modelo
+            model_info: Información del modelo a cargar
             
         Returns:
-            Instancia del modelo
+            Interfaz del modelo cargado
+            
+        Raises:
+            ImportError: Si no se puede importar la implementación de Gemini
+            ValueError: Si no se puede inicializar el modelo
         """
-        raise NotImplementedError(
-            "El soporte para modelos Gemini será implementado próximamente. "
-            "Esta funcionalidad está planificada para la siguiente actualización."
-        )
+        try:
+            from ..cloud.gemini_model import GeminiModel
+            
+            # Crear instancia del modelo
+            model = GeminiModel(model_info)
+            return model
+        except ImportError as e:
+            raise ImportError(f"No se pudo importar la implementación de Gemini: {str(e)}. "
+                            "Asegúrate de tener instalado google-generativeai: pip install google-generativeai")
+        except Exception as e:
+            raise ValueError(f"Error cargando modelo de Gemini: {str(e)}")
     
     def save_config(self, config_path: str):
         """
