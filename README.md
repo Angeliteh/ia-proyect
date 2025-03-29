@@ -154,9 +154,51 @@ python main.py --mode api
 
 El sistema incluye implementaciones de servidores MCP para conectar con:
 
-- **Brave Search**: Acceso a la API de búsqueda web y local de Brave
+- **SQLite**: Acceso completo a bases de datos SQLite con operaciones CRUD y consultas personalizadas
+- **Brave Search**: Acceso a la API de búsqueda web y local de Brave (planificado)
 - **Sistema de archivos local**: Acceso a archivos y directorios locales (planificado)
-- **Base de datos**: Conexión con bases de datos (SQLite, MongoDB, etc.) (planificado)
+- **Base de datos MongoDB**: Conexión con bases de datos MongoDB (planificado)
+
+### Servidor SQLite MCP
+
+El servidor de SQLite permite a los modelos de IA interactuar con bases de datos SQLite a través del protocolo MCP. Características principales:
+
+- **Operaciones CRUD completas** para bases de datos y tablas
+- **Consultas SQL personalizadas** con soporte para parámetros
+- **Paginación** para listar grandes conjuntos de datos
+- **Validación y sanitización** de consultas SQL para prevenir inyecciones
+- **Exposición vía HTTP** para acceso remoto
+- **CLI** para iniciar el servidor desde línea de comandos
+
+Ejemplo de uso:
+```python
+from mcp.connectors.http_client import MCPHttpClient
+from mcp.core.protocol import MCPMessage, MCPAction
+
+# Conectar con el servidor SQLite MCP
+client = MCPHttpClient(base_url="http://localhost:8080")
+client.connect()
+
+# Crear una consulta
+query_msg = MCPMessage(
+    action=MCPAction.SEARCH,
+    resource_type="query",
+    resource_path="/query",
+    data={
+        "db_name": "mi_base_datos.db",
+        "query": "SELECT * FROM usuarios WHERE edad > ?",
+        "params": [25]
+    }
+)
+
+# Enviar la consulta y procesar resultados
+response = client.send_message(query_msg)
+if response.success:
+    for usuario in response.data.get("results", []):
+        print(f"Usuario: {usuario['nombre']}, Edad: {usuario['edad']}")
+```
+
+Para más detalles, consulte la [documentación del servidor SQLite MCP](./mcp_servers/sqlite/README.md).
 
 ### Brave Search MCP Server
 
@@ -207,4 +249,35 @@ MIT
 
 ## Contacto
 
-[Tu nombre/email] 
+[Tu nombre/email]
+
+## Organización del código
+
+El proyecto sigue una estructura modular con los siguientes componentes principales:
+
+### Core MCP (`mcp/`)
+
+Este módulo implementa el Model Context Protocol. Su documentación detallada está disponible en [la documentación de MCP](./mcp/README.md).
+
+- **Protocolo**: Definiciones de mensajes, acciones y respuestas
+- **Conectores**: Comunicación con servidores MCP (HTTP, etc.)
+- **Transporte**: Implementación de servidores HTTP y WebSocket
+
+### Servidores MCP (`mcp_servers/`)
+
+Implementaciones específicas de servidores MCP:
+
+- **SQLite**: [Servidor para bases de datos SQLite](./mcp_servers/sqlite/README.md)
+- (Planificado) Brave Search, sistema de archivos, MongoDB
+
+### Clientes MCP
+
+La mayoría de las funcionalidades de cliente MCP se manejan a través de los conectores genéricos en `mcp/connectors/`, con algunas definiciones base en `mcp_clients/`. En el uso típico, los conectores genéricos son suficientes para interactuar con los servidores MCP.
+
+### Sistema de Modelos (`models/`)
+
+Gestión de modelos de IA locales y en la nube:
+
+- **Detección de recursos**: Analiza CPU, GPU y memoria disponible
+- **Gestión de modelos**: Carga/descarga y optimización
+- **Inferencia**: Comunicación con modelos de distintos proveedores

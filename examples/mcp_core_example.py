@@ -28,7 +28,7 @@ from mcp.core.protocol import (
 from mcp.core.server_base import MCPServerBase
 from mcp.core.client_base import MCPClientBase
 from mcp.core.registry import MCPRegistry
-from mcp import initialize_mcp, shutdown_mcp, get_registry
+from mcp.core.init import initialize_mcp, shutdown_mcp, get_registry
 
 # Implementar un servidor MCP simple para demostración
 class SimpleEchoServer(MCPServerBase):
@@ -276,9 +276,10 @@ async def run_example():
     logger.info("Iniciando ejemplo del núcleo MCP")
     
     try:
-        # Crear y registrar un servidor de eco
-        registry = get_registry()
+        # Inicializar el subsistema MCP antes de obtener el registro
+        registry = initialize_mcp()
         
+        # Crear y registrar un servidor de eco
         echo_server = SimpleEchoServer(name="echo_server")
         registry.register_server("echo", SimpleEchoServer)
         
@@ -349,13 +350,7 @@ async def run_example():
         logger.exception(f"Error en el ejemplo: {e}")
     finally:
         # Cerrar el subsistema MCP
-        await async_shutdown_mcp()
-
-
-async def async_shutdown_mcp():
-    """Versión asíncrona de shutdown_mcp para usar con await."""
-    shutdown_mcp()
-    return None
+        await shutdown_mcp()
 
 
 if __name__ == "__main__":

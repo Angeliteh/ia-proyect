@@ -11,6 +11,8 @@ import os
 import sys
 import logging
 import time
+import asyncio
+from typing import Dict, Any, Optional
 
 # Agregar el directorio padre al path para poder importar los módulos
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -209,15 +211,16 @@ class DirectClient(MCPClientBase):
         )
         return self.send_message(message)
 
-def main():
-    """Función principal del ejemplo."""
-    # Inicializar el subsistema MCP
-    initialize_mcp()
-    
+async def async_main():
+    """
+    Función principal asíncrona que ejecuta el ejemplo.
+    """
     try:
+        # Inicializar el subsistema MCP
+        registry = initialize_mcp()
+        
         # Crear y registrar un servidor de eco
         echo_server = EchoServer()
-        registry = get_registry()
         registry.register_server("echo", EchoServer)
         
         # Crear un cliente directo conectado al servidor
@@ -258,20 +261,19 @@ def main():
                     logger.error(f"Error obteniendo capacidades: {capabilities_response.error}")
             except Exception as e:
                 logger.error(f"Error durante la ejecución: {str(e)}")
+            
+            # Desconectar
+            client.disconnect()
         else:
             logger.error("No se pudo conectar al servidor")
     
     except Exception as e:
-        logger.exception(f"Error en la ejecución: {str(e)}")
-    
+        logger.exception(f"Error en ejemplo: {e}")
     finally:
-        # Desconectar el cliente
-        if 'client' in locals():
-            client.disconnect()
-        
         # Cerrar el subsistema MCP
-        shutdown_mcp()
+        await shutdown_mcp()
         logger.info("Ejemplo finalizado")
 
 if __name__ == "__main__":
-    main() 
+    # Ejecutar ejemplo
+    asyncio.run(async_main()) 

@@ -10,7 +10,8 @@ import argparse
 from dotenv import load_dotenv
 
 # Añadir directorio raíz al path para importaciones
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, parent_dir)
 
 # Importar componentes MCP
 from mcp.core.protocol import MCPMessage
@@ -40,7 +41,7 @@ def test_ping(server):
     
     response = server.handle_action(message)
     
-    logging.info(f"Respuesta: status={response.status}, error={response.error}")
+    logging.info(f"Respuesta: success={response.success}, error={response.error}")
     if response.data:
         logging.info(f"Datos: {response.data}")
     
@@ -60,7 +61,7 @@ def test_capabilities(server):
     
     response = server.handle_action(message)
     
-    logging.info(f"Respuesta: status={response.status}, error={response.error}")
+    logging.info(f"Respuesta: success={response.success}, error={response.error}")
     if response.data:
         logging.info(f"Capacidades: {response.data}")
     
@@ -86,8 +87,8 @@ def test_web_search(server, query="inteligencia artificial", count=5):
     
     response = server.handle_action(message)
     
-    logging.info(f"Respuesta: status={response.status}, error={response.error}")
-    if response.status == "error":
+    logging.info(f"Respuesta: success={response.success}, error={response.error}")
+    if not response.success:
         logging.error(f"Error en búsqueda web: {response.error}")
     elif response.data:
         count = response.data.get("count", 0)
@@ -124,8 +125,8 @@ def test_local_search(server, query="restaurantes en Madrid", count=5):
     
     response = server.handle_action(message)
     
-    logging.info(f"Respuesta: status={response.status}, error={response.error}")
-    if response.status == "error":
+    logging.info(f"Respuesta: success={response.success}, error={response.error}")
+    if not response.success:
         logging.error(f"Error en búsqueda local: {response.error}")
     elif response.data:
         count = response.data.get("count", 0)

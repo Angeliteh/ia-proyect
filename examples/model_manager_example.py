@@ -120,13 +120,13 @@ async def test_model(
             # Verificar si la API key existe
             api_key = os.environ.get(api_key_env)
             if not api_key:
-                logger.warning(f"⚠️ No se encontró la clave API en la variable {api_key_env}")
-                print(f"\n⚠️ La variable de entorno {api_key_env} no está configurada.")
+                logger.warning(f"[AVISO] No se encontró la clave API en la variable {api_key_env}")
+                print(f"\n[AVISO] La variable de entorno {api_key_env} no está configurada.")
                 print(f"Por favor, asegúrate de tener un archivo .env con tu clave API de {api_provider}:")
                 print(f"{api_key_env}=tu-clave-aqui")
                 return
             elif len(api_key) < 20:  # Verificación básica de longitud
-                logger.warning(f"⚠️ La clave API en {api_key_env} parece ser demasiado corta")
+                logger.warning(f"[AVISO] La clave API en {api_key_env} parece ser demasiado corta")
         else:
             # Para modelos locales, mostrar información de recursos
             detector = ResourceDetector()
@@ -233,7 +233,7 @@ async def test_model(
         
         # Error 400: Bad Request con saldo insuficiente para Anthropic
         if "400" in error_str and "credit balance is too low" in error_str and "anthropic" in error_str:
-            print("\n⚠️ ERROR: Saldo insuficiente en Anthropic")
+            print("\n[AVISO] ERROR: Saldo insuficiente en Anthropic")
             print("Tu cuenta de Anthropic no tiene suficientes créditos para usar la API.")
             print("\nPasos para obtener créditos gratuitos:")
             print("1. Visita https://console.anthropic.com/settings/billing")
@@ -253,7 +253,7 @@ async def test_model(
         
         # Error 429: Too Many Requests
         elif "429" in error_str or "too many requests" in error_str:
-            print("\n⚠️ ERROR 429: Demasiadas solicitudes")
+            print("\n[AVISO] ERROR 429: Demasiadas solicitudes")
             print("Has excedido el límite de solicitudes para este modelo.")
             print("\nPosibles soluciones:")
             print("1. Espera unos minutos e intenta nuevamente")
@@ -277,7 +277,7 @@ async def test_model(
         
         # Error 401: Unauthorized
         elif "401" in error_str or "unauthorized" in error_str or "api key" in error_str:
-            print("\n⚠️ ERROR: Problema con la API Key")
+            print("\n[AVISO] ERROR: Problema con la API Key")
             
             if "openai" in error_str:
                 print("Error de autenticación con OpenAI:")
@@ -304,7 +304,7 @@ async def test_model(
         
         # Error 400: Bad Request (otros casos)
         elif "400" in error_str or "bad request" in error_str:
-            print("\n⚠️ ERROR 400: Bad Request")
+            print("\n[AVISO] ERROR 400: Bad Request")
             print("Hay un problema con el formato o contenido de la solicitud.")
             
             # Intentar extraer el mensaje de error más detallado
@@ -321,7 +321,7 @@ async def test_model(
         
         # Error de conexión
         elif "connect" in error_str or "timeout" in error_str or "connection" in error_str:
-            print("\n⚠️ ERROR: Problema de conexión")
+            print("\n[AVISO] ERROR: Problema de conexión")
             print("No se pudo conectar con el servidor de la API.")
             print("\nPosibles soluciones:")
             print("1. Verifica tu conexión a Internet")
@@ -330,7 +330,7 @@ async def test_model(
         
         else:
             # Para otros errores, mostrar el traceback completo
-            print("\n⚠️ Error inesperado:")
+            print("\n[AVISO] Error inesperado:")
             traceback.print_exc()
 
 async def main():
@@ -357,19 +357,19 @@ async def main():
     
     # Comprobar si existe el archivo de configuración
     if args.config and not os.path.exists(args.config):
-        print(f"⚠️ El archivo de configuración '{args.config}' no existe.")
+        print(f"[AVISO] El archivo de configuración '{args.config}' no existe.")
         config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), args.config)
         if os.path.exists(config_path):
-            print(f"ℹ️ Usando ruta alternativa: {config_path}")
+            print(f"[INFO] Usando ruta alternativa: {config_path}")
             args.config = config_path
         else:
-            print("ℹ️ Se usará la configuración predeterminada.")
+            print("[INFO] Se usará la configuración predeterminada.")
             args.config = None
     
     # Verificar si existe el archivo .env
     env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
     if not os.path.exists(env_path):
-        print(f"⚠️ No se encontró el archivo .env en {env_path}")
+        print(f"[AVISO] No se encontró el archivo .env en {env_path}")
         print("Si deseas usar modelos en la nube, crea un archivo .env con tus claves API:")
         print("OPENAI_API_KEY=sk-tu-clave-aqui")
         print("ANTHROPIC_API_KEY=sk-ant-tu-clave-aqui")
@@ -395,7 +395,7 @@ async def main():
           f"{resources['memory']['available_gb']:.2f} GB disponible")
     
     if args.device == "gpu" and not gpu_available:
-        print(f"\n⚠️ Has seleccionado GPU, pero no se detectaron dispositivos GPU compatibles.")
+        print(f"\n[AVISO] Has seleccionado GPU, pero no se detectaron dispositivos GPU compatibles.")
         print(f"Se utilizará CPU en su lugar.")
         args.device = "cpu"
     
@@ -419,7 +419,7 @@ async def main():
     # Comprobar si el modelo existe
     model_exists = args.model in [m["name"] for m in available_models]
     if not model_exists:
-        print(f"❌ Error: El modelo '{args.model}' no está disponible")
+        print(f"[ERROR] El modelo '{args.model}' no está disponible")
         print("Modelos disponibles:", ", ".join([m["name"] for m in available_models]))
         return
     
@@ -449,14 +449,14 @@ async def main():
                 
                 print(f"Dispositivo recomendado: {optimal_device['device'].upper()}")
                 if 'warning' in optimal_device:
-                    print(f"⚠️ {optimal_device['warning']}")
+                    print(f"[AVISO] {optimal_device['warning']}")
         
         if not selected_model['local']:
             api_key_env = selected_model.get('api_key_env', 'Desconocido')
             print(f"Variable de entorno para API key: {api_key_env}")
             
             if api_key_env not in os.environ:
-                print(f"⚠️ ADVERTENCIA: No se encontró la variable {api_key_env} en el entorno")
+                print(f"[AVISO] No se encontró la variable {api_key_env} en el entorno")
         
         if 'description' in selected_model and selected_model['description']:
             print(f"Descripción: {selected_model['description']}")

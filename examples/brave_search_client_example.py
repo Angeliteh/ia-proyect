@@ -20,6 +20,7 @@ import argparse
 import json
 import time
 import threading
+import asyncio
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from dotenv import load_dotenv
 
@@ -228,8 +229,8 @@ def start_test_server(port=8080):
     
     return server
 
-def main():
-    """Función principal del ejemplo."""
+async def main():
+    """Función principal asíncrona para el ejemplo."""
     parser = argparse.ArgumentParser(description="Cliente HTTP MCP para Brave Search (simulado)")
     parser.add_argument("--url", help="URL base del servidor MCP", default="http://localhost:8080")
     parser.add_argument("--query", help="Consulta para búsqueda", default="inteligencia artificial")
@@ -356,9 +357,10 @@ def main():
             server.server_close()
             logger.info("Servidor de prueba detenido")
         
-        # Cerrar el subsistema MCP
-        shutdown_mcp()
+        # Cerrar el subsistema MCP usando await
+        await shutdown_mcp()
         logger.info("Ejemplo finalizado")
 
 if __name__ == "__main__":
-    main() 
+    # Ejecutar función asíncrona principal
+    asyncio.run(main()) 

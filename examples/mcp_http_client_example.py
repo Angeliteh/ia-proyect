@@ -21,7 +21,9 @@ import logging
 import argparse
 import json
 import time
+import asyncio
 from dotenv import load_dotenv
+from typing import Dict, Any, Optional, Union
 
 # Agregar el directorio padre al path para poder importar los módulos
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -43,32 +45,34 @@ logging.basicConfig(
 
 logger = logging.getLogger("mcp_http_example")
 
-def main():
-    """Función principal del ejemplo."""
-    parser = argparse.ArgumentParser(description="Cliente HTTP MCP para Brave Search")
-    parser.add_argument("--url", help="URL base del servidor MCP", default="https://bravesearch-mcp.brave.com")
-    parser.add_argument("--api-key", help="API key para autenticación con Brave Search")
-    parser.add_argument("--query", help="Consulta para búsqueda", default="inteligencia artificial")
-    parser.add_argument("--search-type", choices=["web", "local"], default="web", 
-                        help="Tipo de búsqueda (web o local)")
-    parser.add_argument("--count", type=int, default=5, help="Número de resultados (máx. 20)")
-    parser.add_argument("--offset", type=int, default=0, help="Desplazamiento para paginación (solo web)")
-    args = parser.parse_args()
-    
-    # Inicializar el subsistema MCP
-    initialize_mcp()
-    
-    # Cargar variables de entorno para API keys
-    load_dotenv()
-    
-    # Usar API key de argumentos o de variables de entorno
-    api_key = args.api_key or os.getenv("BRAVE_API_KEY")
-    
-    if not api_key:
-        logger.error("No se ha proporcionado una API key de Brave Search. Use --api-key o defina BRAVE_API_KEY en .env")
-        sys.exit(1)
-    
+async def main():
+    """
+    Función principal que ejecuta el ejemplo.
+    """
     try:
+        # Inicializar el subsistema MCP
+        initialize_mcp()
+        
+        # Cargar variables de entorno para API keys
+        load_dotenv()
+        
+        parser = argparse.ArgumentParser(description="Cliente HTTP MCP para Brave Search")
+        parser.add_argument("--url", help="URL base del servidor MCP", default="https://bravesearch-mcp.brave.com")
+        parser.add_argument("--api-key", help="API key para autenticación con Brave Search")
+        parser.add_argument("--query", help="Consulta para búsqueda", default="inteligencia artificial")
+        parser.add_argument("--search-type", choices=["web", "local"], default="web", 
+                            help="Tipo de búsqueda (web o local)")
+        parser.add_argument("--count", type=int, default=5, help="Número de resultados (máx. 20)")
+        parser.add_argument("--offset", type=int, default=0, help="Desplazamiento para paginación (solo web)")
+        args = parser.parse_args()
+        
+        # Usar API key de argumentos o de variables de entorno
+        api_key = args.api_key or os.getenv("BRAVE_API_KEY")
+        
+        if not api_key:
+            logger.error("No se ha proporcionado una API key de Brave Search. Use --api-key o defina BRAVE_API_KEY en .env")
+            sys.exit(1)
+        
         # Registrar el cliente HTTP para Brave Search
         registry = get_registry()
         http_client = MCPHttpClient(
@@ -180,8 +184,8 @@ def main():
             http_client.disconnect()
         
         # Cerrar el subsistema MCP
-        shutdown_mcp()
+        await shutdown_mcp()
         logger.info("Ejemplo finalizado")
 
 if __name__ == "__main__":
-    main() 
+    asyncio.run(main()) 

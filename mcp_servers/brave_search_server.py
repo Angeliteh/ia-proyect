@@ -172,7 +172,7 @@ class BraveSearchMCPServer:
             if "error" in results:
                 return MCPResponse.error_response(
                     message_id=message.id,
-                    code=MCPErrorCode.SEARCH_ERROR,
+                    code=MCPErrorCode.SERVER_ERROR,
                     message=results["error"]
                 )
             
@@ -200,7 +200,7 @@ class BraveSearchMCPServer:
             if "error" in results:
                 return MCPResponse.error_response(
                     message_id=message.id,
-                    code=MCPErrorCode.SEARCH_ERROR,
+                    code=MCPErrorCode.SERVER_ERROR,
                     message=results["error"]
                 )
             
@@ -219,7 +219,7 @@ class BraveSearchMCPServer:
                 if "error" in fallback_results:
                     return MCPResponse.error_response(
                         message_id=message.id,
-                        code=MCPErrorCode.SEARCH_ERROR,
+                        code=MCPErrorCode.SERVER_ERROR,
                         message=fallback_results["error"]
                     )
                 

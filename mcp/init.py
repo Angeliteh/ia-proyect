@@ -14,7 +14,7 @@ from .core.protocol import MCPError, MCPErrorCode
 
 logger = logging.getLogger("mcp.init")
 
-async def initialize_mcp(config_path: Optional[str] = None) -> MCPRegistry:
+def initialize_mcp(config_path: Optional[str] = None) -> MCPRegistry:
     """
     Inicializa el subsistema MCP.
     
@@ -61,7 +61,7 @@ async def initialize_mcp(config_path: Optional[str] = None) -> MCPRegistry:
             message=f"Error inicializando subsistema MCP: {str(e)}"
         )
 
-async def shutdown_mcp() -> None:
+def shutdown_mcp() -> None:
     """
     Cierra el subsistema MCP y todos sus servidores.
     """

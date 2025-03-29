@@ -20,6 +20,7 @@ import sys
 import logging
 import argparse
 import time
+import asyncio
 from dotenv import load_dotenv
 
 # Agregar el directorio padre al path para poder importar los módulos
@@ -45,7 +46,7 @@ logging.basicConfig(
 
 logger = logging.getLogger("brave_search_server_example")
 
-def test_server_with_client(url, query, search_type, count=5, offset=0):
+async def test_server_with_client(url, query, search_type, count=5, offset=0):
     """
     Prueba el servidor MCP para Brave Search utilizando un cliente HTTP.
     
@@ -166,11 +167,11 @@ def test_server_with_client(url, query, search_type, count=5, offset=0):
             client.disconnect()
         
         # Cerrar el subsistema MCP
-        shutdown_mcp()
+        await shutdown_mcp()
         logger.info("Prueba finalizada")
 
-def main():
-    """Función principal del ejemplo."""
+async def main():
+    """Función principal asíncrona del ejemplo."""
     parser = argparse.ArgumentParser(description="Ejemplo de servidor MCP para Brave Search API")
     parser.add_argument("--host", default="localhost", help="Host en el que escuchar")
     parser.add_argument("--port", type=int, default=8080, help="Puerto en el que escuchar")
@@ -179,6 +180,7 @@ def main():
     parser.add_argument("--query", default="inteligencia artificial", help="Consulta para la búsqueda de prueba")
     parser.add_argument("--count", type=int, default=5, help="Número de resultados a mostrar")
     parser.add_argument("--offset", type=int, default=0, help="Offset para paginación (solo web)")
+    parser.add_argument("--auto-exit", action="store_true", help="Salir automáticamente después de un tiempo")
     args = parser.parse_args()
     
     # Cargar variables de entorno para API keys
@@ -202,7 +204,7 @@ def main():
             logger.info(f"Ejecutando búsqueda de prueba: {args.test_search}")
             # Dar tiempo al servidor para inicializarse completamente
             time.sleep(1)
-            test_server_with_client(
+            await test_server_with_client(
                 url=f"http://{args.host}:{args.port}",
                 query=args.query,
                 search_type=args.test_search,
@@ -212,10 +214,28 @@ def main():
             # Terminar después de la prueba
             return
         
-        # Si no hay búsqueda de prueba, mantener el servidor en ejecución
-        logger.info("Servidor MCP de Brave Search en ejecución. Presiona Ctrl+C para detener.")
-        while True:
-            time.sleep(1)
+        # Detectar si estamos en un entorno de prueba
+        is_test_environment = args.auto_exit or "PYTEST_CURRENT_TEST" in os.environ or "TEST_ENV" in os.environ
+        
+        if is_test_environment:
+            # En entorno de prueba, ejecutar por tiempo limitado
+            logger.info("Ejecutando en modo prueba. El servidor se detendrá automáticamente en 5 segundos.")
+            timeout = 5
+            
+            # Esperar un tiempo corto
+            for i in range(timeout):
+                time.sleep(1)
+                remaining = timeout - i - 1
+                if remaining > 0:
+                    logger.info(f"Cerrando en {remaining} segundos...")
+                
+            logger.info("Tiempo de prueba completado. Cerrando servidor...")
+            return
+        else:
+            # Si no hay búsqueda de prueba ni estamos en modo prueba, mantener el servidor en ejecución
+            logger.info("Servidor MCP de Brave Search en ejecución. Presiona Ctrl+C para detener.")
+            while True:
+                time.sleep(1)
     
     except KeyboardInterrupt:
         # Manejar Ctrl+C para detener el servidor
@@ -229,4 +249,5 @@ def main():
             logger.info("Servidor detenido")
 
 if __name__ == "__main__":
-    main() 
+    # Ejecutar función asíncrona principal
+    asyncio.run(main()) 
