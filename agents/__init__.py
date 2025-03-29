@@ -6,5 +6,6 @@ This package contains various agent implementations that can be orchestrated by 
 
 from .base import BaseAgent, AgentResponse
 from .echo_agent import EchoAgent
+from .code_agent import CodeAgent
 
-__all__ = ['BaseAgent', 'AgentResponse', 'EchoAgent'] 
+__all__ = ['BaseAgent', 'AgentResponse', 'EchoAgent', 'CodeAgent'] 

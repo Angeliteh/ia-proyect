@@ -57,10 +57,18 @@
       "description": "Modelo de Google Gemini 2.0 Flash, rápido y eficiente para generación de texto"
     },
     {
+      "name": "gemini-pro",
+      "model_type": "gemini",
+      "local": false,
+      "api_key_env": "GOOGLE_API_KEY",
+      "context_length": 32768,
+      "description": "Modelo Gemini Pro, versátil para múltiples tareas"
+    },
+    {
       "name": "phi-2",
       "model_type": "phi",
       "local": true,
-      "path": "C:/Users/Angel/Desktop/I A/ai-agent-system/models/local/phi-2.Q4_K_M.gguf",
+      "path": "ia-proyect/models/local/phi-2.Q4_K_M.gguf",
       "context_length": 2048,
       "quantization": "q4_k_m",
       "parameters": 2.7,
@@ -70,7 +78,7 @@
       "name": "mistral-7b-instruct",
       "model_type": "mistral",
       "local": true,
-      "path": "C:/Users/Angel/Desktop/I A/ai-agent-system/models/local/mistral-7b-instruct-v0.3.Q4_K_M.gguf",
+      "path": "ia-proyect/models/local/Mistral-7B-Instruct-v0.3.Q4_K_M.gguf",
       "context_length": 8192,
       "quantization": "q4_k_m",
       "parameters": 7.0,
@@ -80,7 +88,7 @@
       "name": "llama-2-7b-chat",
       "model_type": "llama",
       "local": true,
-      "path": "models/local/llama-2-7b-chat.Q4_K_M.gguf",
+      "path": "ia-proyect/models/local/llama-2-7b-chat.Q4_K_M.gguf",
       "context_length": 4096,
       "quantization": "q4_k_m",
       "parameters": 7.0,

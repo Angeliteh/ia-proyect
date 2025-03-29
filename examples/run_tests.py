@@ -102,6 +102,21 @@ TESTS: Dict[str, Dict[str, Dict[str, str]]] = {
                 "args": ""
             }
         }
+    },
+    "agents": {
+        "description": "Pruebas de los agentes especializados",
+        "tests": {
+            "echo": {
+                "description": "Prueba del agente de eco básico",
+                "script": "echo_agent_example.py",
+                "args": ""
+            },
+            "code": {
+                "description": "Prueba del agente de código",
+                "script": "code_agent_example.py",
+                "args": ""
+            }
+        }
     }
 }
 
