@@ -457,7 +457,7 @@ class ModelManager:
             
             # En PyTorch, liberar caché CUDA si está disponible
             try:
-                import torch
+                import torch # type: ignore
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
             except ImportError:

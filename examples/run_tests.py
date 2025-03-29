@@ -1,310 +1,269 @@
 #!/usr/bin/env python
 """
-Script para ejecutar pruebas organizadas de los ejemplos disponibles.
-
-Este script permite ejecutar ejemplos específicos o grupos de ejemplos
-para facilitar la verificación de la funcionalidad del sistema.
+Test runner for the MCP system
 """
 
 import os
 import sys
+import time
+import glob
+import json
 import argparse
 import subprocess
 import logging
-from typing import Dict, List, Tuple, Optional
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List, Any, Optional, Tuple
 
-# Configurar logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s] [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
-)
-
-logger = logging.getLogger("test_runner")
-
-# Directorio actual donde se encuentra el script
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-EXAMPLES_DIR = SCRIPT_DIR  # Los ejemplos están en el mismo directorio que este script
-
-# Organización de pruebas por categorías
-TESTS: Dict[str, Dict[str, Dict[str, str]]] = {
-    "mcp": {
-        "description": "Pruebas relacionadas con el Model Context Protocol (MCP)",
-        "tests": {
-            "core": {
-                "description": "Pruebas del núcleo MCP",
-                "script": "mcp_core_example.py",
-                "args": ""
-            },
-            "echo": {
-                "description": "Cliente MCP Echo simple",
-                "script": "mcp_echo_client_example.py",
-                "args": ""
-            },
-            "http": {
-                "description": "Cliente MCP sobre HTTP",
-                "script": "mcp_http_client_example.py",
-                "args": ""
-            }
+# Test configuration
+TEST_CONFIG = {
+    "brave": {
+        # The name of the test case
+        "server": {
+            # The test module
+            "module": "brave_search_server_test.py",
+            # The directory relative to this file
+            "dir": ".",
+            # Arguments to pass to the test
+            "args": "--auto-exit",
+            # Optional expected result (0 = success)
+            "expected_result": 0
+        },
+        "api": {
+            "module": "brave_search_api_test.py",
+            "dir": ".",
+            "args": "",
+            "expected_result": 0
+        },
+        "mcp_test": {
+            "module": "brave_api_mcp_test.py",
+            "dir": ".",
+            "args": "",
+            "expected_result": 0
         }
     },
-    "brave": {
-        "description": "Pruebas relacionadas con la integración de Brave Search",
-        "tests": {
-            "api": {
-                "description": "Prueba directa de la API de Brave",
-                "script": "test_brave_api.py",
-                "args": ""
-            },
-            "client": {
-                "description": "Cliente MCP para Brave Search",
-                "script": "brave_search_client_example.py",
-                "args": ""
-            },
-            "server": {
-                "description": "Servidor MCP para Brave Search",
-                "script": "brave_search_server_example.py",
-                "args": "--auto-exit"
-            },
-            "mcp_test": {
-                "description": "Prueba de integración MCP con Brave API",
-                "script": "brave_api_mcp_test.py",
-                "args": ""
-            }
+    "gemini": {
+        "api": {
+            "module": "gemini_api_test.py",
+            "dir": ".",
+            "args": "--no-interactive",
+            "expected_result": 0
         }
     },
     "sqlite": {
-        "description": "Pruebas relacionadas con el servidor SQLite MCP",
-        "tests": {
-            "direct": {
-                "description": "Prueba directa del servidor SQLite MCP",
-                "script": "sqlite_mcp_example.py",
-                "args": "--mode direct"
-            },
-            "http": {
-                "description": "Prueba del servidor SQLite MCP sobre HTTP",
-                "script": "sqlite_mcp_example.py",
-                "args": "--mode http"
-            },
-            "both": {
-                "description": "Prueba completa del servidor SQLite MCP (directo y HTTP)",
-                "script": "sqlite_mcp_example.py",
-                "args": "--mode both"
-            }
-        }
-    },
-    "models": {
-        "description": "Pruebas relacionadas con el gestor de modelos de IA",
-        "tests": {
-            "manager": {
-                "description": "Prueba del gestor de modelos",
-                "script": "model_manager_example.py",
-                "args": ""
-            }
+        "api": {
+            "module": "sqlite_test.py",
+            "dir": ".",
+            "args": "",
+            "expected_result": 0
         }
     },
     "agents": {
-        "description": "Pruebas de los agentes especializados",
-        "tests": {
-            "echo": {
-                "description": "Prueba del agente de eco básico",
-                "script": "echo_agent_example.py",
-                "args": ""
-            },
-            "code": {
-                "description": "Prueba del agente de código",
-                "script": "code_agent_example.py",
-                "args": ""
-            }
+        "echo": {
+            "module": "echo_agent_example.py",
+            "dir": ".",
+            "args": "",
+            "expected_result": 0
+        },
+        "code": {
+            "module": "code_agent_example.py",
+            "dir": ".",
+            "args": "--task generate --model gemini-pro",
+            "expected_result": 0
+        },
+        "system": {
+            "module": "system_agent_example.py",
+            "dir": ".",
+            "args": "--task info",
+            "expected_result": 0
+        },
+        "system_files": {
+            "module": "system_agent_example.py",
+            "dir": ".",
+            "args": "--task files",
+            "expected_result": 0
         }
     }
 }
 
-def run_test(category: str, test_name: str) -> Tuple[int, str]:
-    """
-    Ejecuta un test específico.
+# Configure logging
+logging.basicConfig(level=logging.INFO,
+                   format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+
+def find_python_executable() -> str:
+    """Find the Python executable to use for tests."""
+    # Use sys.executable if available
+    if sys.executable:
+        return sys.executable
     
-    Args:
-        category: Categoría del test
-        test_name: Nombre del test
-        
-    Returns:
-        Tupla con el código de salida y la salida del proceso
-    """
-    if category not in TESTS or test_name not in TESTS[category]["tests"]:
-        return 1, f"Test {category}/{test_name} no encontrado"
+    # Try some common Python executable names
+    for cmd in ["python", "python3", "py"]:
+        try:
+            result = subprocess.run([cmd, "--version"], 
+                                   stdout=subprocess.PIPE, 
+                                   stderr=subprocess.PIPE)
+            if result.returncode == 0:
+                return cmd
+        except FileNotFoundError:
+            continue
     
-    test_info = TESTS[category]["tests"][test_name]
-    script_path = os.path.join(EXAMPLES_DIR, test_info["script"])
+    # Default to "python" if nothing else found
+    return "python"
+
+
+def run_test(category: str, test_name: str, config: Dict[str, Any]) -> Tuple[int, str, str]:
+    """Run a single test and return the result."""
+    module = config["module"]
+    directory = config["dir"]
+    args = config["args"]
+    expected_result = config.get("expected_result", 0)
     
-    if not os.path.exists(script_path):
-        return 1, f"Script {script_path} no encontrado"
+    # Get the full path to the test module
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    test_dir = os.path.join(current_dir, directory)
+    test_path = os.path.join(test_dir, module)
     
-    args = test_info["args"].split() if test_info["args"] else []
-    cmd = [sys.executable, script_path] + args
+    if not os.path.exists(test_path):
+        logger.error(f"Test module not found: {test_path}")
+        return 1, "", f"Test module not found: {test_path}"
     
-    logger.info(f"Ejecutando: {' '.join(cmd)}")
+    # Command to run the test
+    python_exe = find_python_executable()
+    cmd = [python_exe, test_path]
+    
+    # Add arguments if provided
+    if args:
+        cmd.extend(args.split())
+    
+    # Run the test
+    logger.info(f"Running test: {category}:{test_name} - {' '.join(cmd)}")
+    start_time = time.time()
     
     try:
-        result = subprocess.run(
+        process = subprocess.Popen(
             cmd,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            check=False
+            cwd=test_dir
         )
+        stdout, stderr = process.communicate(timeout=60)
         
-        return result.returncode, result.stdout + result.stderr
-    except Exception as e:
-        return 1, f"Error ejecutando prueba: {e}"
-
-def list_tests() -> None:
-    """Muestra una lista de las pruebas disponibles."""
-    print("\n=== Pruebas disponibles ===\n")
-    
-    for category, info in TESTS.items():
-        print(f"\n== {category.upper()} - {info['description']} ==")
+        end_time = time.time()
+        duration = end_time - start_time
         
-        for test_name, test_info in info["tests"].items():
-            print(f"  {category}:{test_name} - {test_info['description']}")
+        if process.returncode == expected_result:
+            logger.info(f"Test {category}:{test_name} completed successfully in {duration:.2f}s")
+            return 0, stdout, stderr
+        else:
+            logger.error(f"Test {category}:{test_name} failed with code {process.returncode}")
+            return process.returncode, stdout, stderr
             
-            # Mostrar script y argumentos
-            script = test_info["script"]
-            args = test_info["args"]
-            print(f"    Script: {script}")
-            if args:
-                print(f"    Args: {args}")
-    
-    print("\nEjemplos de uso:")
-    print("  python run_tests.py --list")
-    print("  python run_tests.py --run mcp:core")
-    print("  python run_tests.py --run sqlite:direct")
-    print("  python run_tests.py --run-category sqlite")
+    except subprocess.TimeoutExpired:
+        process.kill()
+        logger.error(f"Test {category}:{test_name} timed out after 60s")
+        return 1, "", "Timeout expired"
+    except Exception as e:
+        logger.error(f"Error running test {category}:{test_name}: {str(e)}")
+        return 1, "", str(e)
+
 
 def run_category(category: str) -> bool:
-    """
-    Ejecuta todas las pruebas en una categoría.
-    
-    Args:
-        category: Nombre de la categoría
-        
-    Returns:
-        True si todas las pruebas tuvieron éxito, False en caso contrario
-    """
-    if category not in TESTS:
-        logger.error(f"Categoría '{category}' no encontrada")
+    """Run all tests in a category."""
+    if category not in TEST_CONFIG:
+        logger.error(f"Unknown test category: {category}")
         return False
     
-    logger.info(f"Ejecutando todas las pruebas de la categoría '{category}'")
+    logger.info(f"Running all tests in category: {category}")
+    tests = TEST_CONFIG[category]
+    all_passed = True
     
-    success = True
-    for test_name in TESTS[category]["tests"]:
-        logger.info(f"=== Prueba: {category}:{test_name} ===")
+    for test_name, test_config in tests.items():
+        result, stdout, stderr = run_test(category, test_name, test_config)
         
-        exit_code, output = run_test(category, test_name)
-        
-        if exit_code == 0:
-            logger.info(f"Prueba {category}:{test_name} completada con éxito")
+        if result != 0:
+            all_passed = False
+            logger.error(f"Test {category}:{test_name} failed")
+            logger.error(f"STDOUT:\n{stdout}")
+            logger.error(f"STDERR:\n{stderr}")
         else:
-            logger.error(f"Prueba {category}:{test_name} falló (código: {exit_code})")
-            success = False
-        
-        # Mostrar primeras y últimas líneas de la salida para no abrumar
-        output_lines = output.splitlines()
-        if len(output_lines) > 20:
-            logger.info("Primeras 10 líneas de la salida:")
-            for line in output_lines[:10]:
-                print(f"  {line}")
-            print("  ...")
-            logger.info("Últimas 10 líneas de la salida:")
-            for line in output_lines[-10:]:
-                print(f"  {line}")
-        else:
-            logger.info("Salida completa:")
-            for line in output_lines:
-                print(f"  {line}")
-        
-        print("\n")  # Separador entre pruebas
+            logger.info(f"Test {category}:{test_name} passed")
     
-    return success
+    return all_passed
 
-def run_all_tests() -> bool:
-    """
-    Ejecuta todas las pruebas de todas las categorías.
-    
-    Returns:
-        True si todas las pruebas tuvieron éxito, False en caso contrario
-    """
-    logger.info("Ejecutando todas las pruebas disponibles")
-    
-    success = True
-    for category in TESTS.keys():
-        logger.info(f"\n=== EJECUTANDO PRUEBAS DE CATEGORÍA: {category.upper()} ===\n")
-        category_success = run_category(category)
-        if not category_success:
-            success = False
-    
-    return success
 
-def main() -> None:
-    """Función principal que procesa los argumentos y ejecuta las pruebas."""
-    parser = argparse.ArgumentParser(description="Ejecutor de pruebas para ejemplos IA Project")
+def run_specific_test(test_spec: str) -> bool:
+    """Run a specific test identified by category:test_name."""
+    parts = test_spec.split(":")
+    if len(parts) != 2:
+        logger.error(f"Invalid test specification: {test_spec}. Use format 'category:test_name'")
+        return False
     
-    # Grupo mutuamente excluyente para las acciones
-    action_group = parser.add_mutually_exclusive_group(required=True)
-    action_group.add_argument("--list", action="store_true", help="Listar todas las pruebas disponibles")
-    action_group.add_argument("--run", help="Ejecutar una prueba específica (formato: categoria:prueba)")
-    action_group.add_argument("--run-category", help="Ejecutar todas las pruebas de una categoría")
-    action_group.add_argument("--run-all", action="store_true", help="Ejecutar todas las pruebas disponibles")
+    category, test_name = parts
     
-    parser.add_argument("--verbose", "-v", action="store_true", help="Mostrar salida detallada")
+    if category not in TEST_CONFIG:
+        logger.error(f"Unknown test category: {category}")
+        return False
+    
+    if test_name not in TEST_CONFIG[category]:
+        logger.error(f"Unknown test name: {test_name} in category {category}")
+        return False
+    
+    test_config = TEST_CONFIG[category][test_name]
+    result, stdout, stderr = run_test(category, test_name, test_config)
+    
+    if result == 0:
+        logger.info(f"Test {category}:{test_name} passed")
+        logger.info(f"STDOUT:\n{stdout}")
+        if stderr:
+            logger.info(f"STDERR:\n{stderr}")
+        return True
+    else:
+        logger.error(f"Test {category}:{test_name} failed with code {result}")
+        logger.error(f"STDOUT:\n{stdout}")
+        logger.error(f"STDERR:\n{stderr}")
+        return False
+
+
+def main():
+    """Parse arguments and run tests."""
+    parser = argparse.ArgumentParser(description="MCP Test Runner")
+    
+    # Define mutually exclusive group for test selection
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--run-all", action="store_true", help="Run all tests")
+    group.add_argument("--run-category", help="Run all tests in the specified category")
+    group.add_argument("--run", help="Run a specific test (format: category:test_name)")
+    group.add_argument("--list", action="store_true", help="List all available tests")
     
     args = parser.parse_args()
     
-    # Configurar nivel de logging según verbose
-    if args.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
-    
-    # Listar pruebas disponibles
     if args.list:
-        list_tests()
-        return
+        print("Available tests:")
+        for category, tests in TEST_CONFIG.items():
+            print(f"\n{category}:")
+            for test_name, test_config in tests.items():
+                print(f"  - {test_name}: {test_config['module']}")
+        return 0
     
-    # Ejecutar prueba específica
-    if args.run:
-        try:
-            category, test_name = args.run.split(":")
-        except ValueError:
-            logger.error("Formato incorrecto. Debe ser 'categoria:prueba'")
-            return
-        
-        logger.info(f"Ejecutando prueba {category}:{test_name}")
-        exit_code, output = run_test(category, test_name)
-        
-        if exit_code == 0:
-            logger.info(f"Prueba {category}:{test_name} completada con éxito")
-        else:
-            logger.error(f"Prueba {category}:{test_name} falló (código: {exit_code})")
-        
-        print("\n--- Salida de la prueba ---")
-        print(output)
-    
-    # Ejecutar todas las pruebas de una categoría
-    if args.run_category:
-        success = run_category(args.run_category)
-        
-        if success:
-            logger.info(f"Todas las pruebas de la categoría '{args.run_category}' completadas con éxito")
-        else:
-            logger.error(f"Una o más pruebas de la categoría '{args.run_category}' fallaron")
-    
-    # Ejecutar todas las pruebas
     if args.run_all:
-        success = run_all_tests()
-        
-        if success:
-            logger.info("Todas las pruebas completadas con éxito")
-        else:
-            logger.error("Una o más pruebas fallaron")
+        logger.info("Running all tests")
+        all_passed = True
+        for category in TEST_CONFIG:
+            if not run_category(category):
+                all_passed = False
+        return 0 if all_passed else 1
+    
+    if args.run_category:
+        logger.info(f"Running all tests in category: {args.run_category}")
+        return 0 if run_category(args.run_category) else 1
+    
+    if args.run:
+        logger.info(f"Running test: {args.run}")
+        return 0 if run_specific_test(args.run) else 1
+
 
 if __name__ == "__main__":
-    main() 
+    sys.exit(main()) 
