@@ -29,7 +29,15 @@ structure:
       - "http"           # Cliente MCP para conexión vía HTTP
       - "brave_search"   # Cliente específico para Brave Search
     - "agents"           # Implementaciones de agentes
+      - "base"           # Clases base para agentes
+      - "communication"  # Sistema de comunicación entre agentes
+      - "specialized"    # Agentes especializados (código, sistema, etc.)
+      - "orchestrator"   # Agente orquestador para coordinar otros agentes
     - "memory"           # Sistema de memoria compartida
+      - "core"           # Núcleo del sistema de memoria
+      - "storage"        # Backends de almacenamiento (sqlite, redis, etc.)
+      - "processors"     # Procesadores para resumir y vectorizar recuerdos
+      - "types"          # Tipos especializados de memoria (corto/largo plazo)
     - "models"           # Gestores de modelos de IA
       - "core"           # Núcleo del sistema de modelos (ModelManager, ResourceDetector)
       - "cloud"          # Modelos de IA en la nube (OpenAI, Anthropic)
@@ -42,6 +50,8 @@ structure:
     - "examples"         # Scripts de ejemplo
       - "mcp"            # Ejemplos de uso del MCP
       - "models"         # Ejemplos de uso de modelos
+      - "agents"         # Ejemplos de uso de agentes
+      - "memory"         # Ejemplos de uso del sistema de memoria
 
 # Reglas de documentación
 documentation:
@@ -62,10 +72,30 @@ code_style:
 
 # Configuración de memoria
 memory:
+  types:
+    - "short_term"       # Memoria de corto plazo (contexto actual)
+    - "long_term"        # Memoria de largo plazo (conocimiento persistente)
+    - "episodic"         # Memoria episódica (secuencias de eventos)
+    - "semantic"         # Memoria semántica (conceptos y significados)
+  components:
+    - "storage"          # Componente de almacenamiento
+    - "retrieval"        # Componente de recuperación
+    - "indexing"         # Componente de indexación
+    - "summarization"    # Componente de resumen
+    - "vectorization"    # Componente de vectorización
   persistence:
     enabled: true
-    type: "sqlite"  # Opciones: sqlite, json, redis, etc.
+    types:
+      - name: "sqlite"   # Base de datos SQLite
+        default: true
+      - name: "json"     # Archivos JSON
+      - name: "redis"    # Base de datos Redis (opcional)
     cache_size: 1000
+  retrieval_methods:
+    - "keyword"          # Búsqueda por palabras clave
+    - "semantic"         # Búsqueda por similitud semántica (vectores)
+    - "temporal"         # Búsqueda por tiempo/orden
+    - "relevance"        # Búsqueda por relevancia contextual
 
 # Configuración de logging
 logging:
@@ -103,6 +133,10 @@ architecture:
       description: "Registro centralizado para gestión de componentes"
     - name: "Adapter Pattern"
       description: "Adaptadores para integrar sistemas externos con el protocolo MCP"
+    - name: "Observer Pattern"
+      description: "Patrón observador para la comunicación entre agentes"
+    - name: "Strategy Pattern"
+      description: "Patrón estrategia para seleccionar comportamientos en tiempo de ejecución"
 
 # Configuración de MCP
 mcp:
@@ -194,14 +228,38 @@ models:
 
 # Reglas de agentes
 agents:
-  states:
-    - "idle"
-    - "processing"
-    - "error"
-  transitions:
-    - "idle → processing"
-    - "processing → idle"
-    - "processing → error"
+  base:
+    states:
+      - "idle"
+      - "processing"
+      - "error"
+    transitions:
+      - "idle → processing"
+      - "processing → idle"
+      - "processing → error"
+      - "error → idle"
+  types:
+    - name: "EchoAgent"
+      description: "Agente básico que repite lo que recibe (demo)"
+    - name: "CodeAgent"
+      description: "Agente especializado en tareas de programación"
+      capabilities: ["generate", "explain", "improve", "fix"]
+    - name: "SystemAgent"
+      description: "Agente para control del sistema operativo"
+      capabilities: ["execute_command", "file_operations", "process_management"]
+    - name: "OrchestratorAgent"
+      description: "Agente para coordinar otros agentes"
+      capabilities: ["task_planning", "agent_selection", "workflow_management"]
+  communication:
+    message_types:
+      - "request"       # Solicitud de acción
+      - "response"      # Respuesta a una solicitud
+      - "notification"  # Notificación informativa
+      - "status"        # Actualización de estado
+      - "error"         # Notificación de error
+    components:
+      - "message"       # Clase para representar mensajes
+      - "communicator"  # Sistema de enrutamiento de mensajes
 
 # Reglas de testing
 test_rules:

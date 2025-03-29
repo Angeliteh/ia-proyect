@@ -281,3 +281,159 @@ Gestión de modelos de IA locales y en la nube:
 - **Detección de recursos**: Analiza CPU, GPU y memoria disponible
 - **Gestión de modelos**: Carga/descarga y optimización
 - **Inferencia**: Comunicación con modelos de distintos proveedores
+
+# Memory System
+
+A comprehensive memory system for AI agents, allowing them to store, retrieve, and manipulate different types of memory, such as episodic, semantic, and procedural memory.
+
+## Features
+
+- **Core Memory System**: Central memory management with flexible storage backends
+- **Memory Items**: Structured representation of individual memories with metadata
+- **Multiple Memory Types**: 
+  - **Episodic Memory**: For storing sequences of events or experiences in a temporal context
+  - (Planned) Semantic Memory: For storing facts, concepts and general knowledge
+  - (Planned) Short-term Memory: For temporary, currently relevant information
+  - (Planned) Long-term Memory: For persistent, important information
+- **Storage Options**: 
+  - In-memory storage for fast, temporary access
+  - SQLite storage for persistent episodic memory
+  - (Planned) Vector database integration for semantic search
+- **Memory Linking**: Create relationships between memories to form associative networks
+- **Memory Queries**: Find memories based on type, importance, metadata, and other criteria
+- **Episodic Storage Features**:
+  - Episode management (create, retrieve, update episodes)
+  - Memory association with episodes
+  - Episode search and summarization
+  - Active/inactive episode tracking
+
+## Architecture
+
+The memory system is designed with a modular architecture consisting of:
+
+### Core Components
+
+- `MemorySystem`: Central manager for all memory operations
+- `MemoryItem`: Base data structure representing a single memory
+
+### Memory Types
+
+- `EpisodicMemory`: Stores sequences of related memories in temporal order
+- (Planned) `SemanticMemory`: Stores facts and conceptual knowledge
+- (Planned) `ShortTermMemory`: Temporary memory with automatic forgetting
+- (Planned) `LongTermMemory`: Persistent memory for important information
+
+### Storage Backends
+
+- `InMemoryStorage`: RAM-based storage for temporary data
+- `SQLiteStorage`: (Planned) Database storage for persistent data
+- `VectorStorage`: (Planned) Vector database for semantic search
+
+## Usage Examples
+
+### Basic Memory Operations
+
+```python
+from memory import MemorySystem
+from memory.storage import InMemoryStorage
+
+# Create a memory system
+memory_system = MemorySystem(storage=InMemoryStorage())
+
+# Add a memory
+memory_id = memory_system.add_memory(
+    content="This is important information to remember.",
+    memory_type="fact",
+    importance=0.8,
+    metadata={"source": "user", "topic": "general"}
+)
+
+# Retrieve memory
+memory = memory_system.get_memory(memory_id)
+print(f"Retrieved memory: {memory.content}")
+
+# Query memories by type
+facts = memory_system.query_memories(memory_type="fact")
+```
+
+### Using Episodic Memory
+
+```python
+from memory import MemorySystem
+from memory.storage import InMemoryStorage
+from memory.types import EpisodicMemory
+from datetime import datetime
+
+# Create memory system
+memory_system = MemorySystem(storage=InMemoryStorage())
+
+# Create episodic memory
+episodic = EpisodicMemory(memory_system, db_path="data/memory/episodes.db")
+
+# Create a conversation episode
+conversation_id = episodic.create_episode(
+    title="Conversation about AI",
+    description="Discussion about AI development",
+    importance=0.8,
+    metadata={"participants": ["user", "assistant"]}
+)
+
+# Add memories to the episode
+memory_id1 = memory_system.add_memory(
+    content="What's the latest in AI development?",
+    memory_type="message",
+    importance=0.7,
+    metadata={"speaker": "user", "timestamp": datetime.now().isoformat()}
+)
+
+memory_id2 = memory_system.add_memory(
+    content="Large language models are becoming increasingly capable...",
+    memory_type="message", 
+    importance=0.8,
+    metadata={"speaker": "assistant", "timestamp": datetime.now().isoformat()}
+)
+
+# Associate memories with episode
+episodic.add_memory_to_episode(conversation_id, memory_id1)
+episodic.add_memory_to_episode(conversation_id, memory_id2)
+
+# Get all memories from episode
+conversation_memories = episodic.get_memories_for_episode(conversation_id)
+```
+
+## Running the Examples
+
+The project includes example scripts demonstrating the memory system functionality:
+
+```bash
+# Run basic memory demo
+python examples/memory_example.py --demo basic
+
+# Run episodic memory demo
+python examples/memory_example.py --demo episodic
+```
+
+## Extending the System
+
+### Adding New Memory Types
+
+Create a new class in the `memory/types` directory that uses the `MemorySystem` for storage and retrieval.
+
+### Adding New Storage Backends
+
+Implement the `BaseStorage` interface in the `memory/storage` directory.
+
+### Adding New Processors
+
+Create new processor classes in the `memory/processors` directory.
+
+## Future Enhancements
+
+- Add vector database support for efficient semantic search
+- Implement episodic and semantic memory types
+- Add compression for long-term memories
+- Integrate with knowledge graphs for better relational understanding
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
