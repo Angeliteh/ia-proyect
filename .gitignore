@@ -21,6 +21,13 @@ __pycache__/
 .pytest_cache/
 logs/
 *.log
+brave_api_test.log
+brave_mcp_test.log
+mcp_test_*.log
+
+# Archivos de configuración local
+local_config.ini
+config/local*.yaml
 
 # Entornos virtuales
 venv/

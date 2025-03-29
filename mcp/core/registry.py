@@ -54,6 +54,7 @@ class MCPRegistry:
         self._servers = {}  # {nombre: {class, config}}
         self._clients = {}  # {nombre: {class, config}}
         self._instances = {}  # {nombre: instancia_servidor}
+        self._client_instances = {}  # {nombre: instancia_cliente}
         self.logger = logging.getLogger("mcp.registry")
         self._initialized = True
     
@@ -89,31 +90,38 @@ class MCPRegistry:
     def register_client(
         self, 
         name: str, 
-        client_class: Type[MCPClientBase], 
+        client: Union[Type[MCPClientBase], MCPClientBase], 
         **kwargs
     ) -> None:
         """
-        Registra una clase de cliente MCP.
+        Registra un cliente MCP o una clase de cliente.
         
         Args:
             name: Nombre único para el cliente
-            client_class: Clase del cliente (debe heredar de MCPClientBase)
+            client: Instancia o clase del cliente (debe heredar de MCPClientBase)
             **kwargs: Configuración por defecto para instancias de este cliente
         
         Raises:
-            ValueError: Si el nombre ya está registrado o la clase no es válida
+            ValueError: Si el nombre ya está registrado o el cliente no es válido
         """
         if name in self._clients:
             raise ValueError(f"Ya existe un cliente registrado con el nombre '{name}'")
+        
+        # Si es una instancia directa, la guardamos en un diccionario diferente
+        if isinstance(client, MCPClientBase):
+            self._client_instances[name] = client
+            self.logger.info(f"Instancia de cliente MCP registrada: {name}")
+            return
             
-        if not inspect.isclass(client_class) or not issubclass(client_class, MCPClientBase):
+        # Si es una clase, verificamos que sea subclase de MCPClientBase
+        if not inspect.isclass(client) or not issubclass(client, MCPClientBase):
             raise ValueError(f"La clase proporcionada debe heredar de MCPClientBase")
             
         self._clients[name] = {
-            "class": client_class,
+            "class": client,
             "config": kwargs
         }
-        self.logger.info(f"Cliente MCP registrado: {name}")
+        self.logger.info(f"Clase de cliente MCP registrada: {name}")
     
     def create_server(self, name: str, **kwargs) -> MCPServerBase:
         """
@@ -287,7 +295,7 @@ class MCPRegistry:
                     # Registrar el cliente
                     self.register_client(
                         name=client_name,
-                        client_class=client_class,
+                        client=client_class,
                         **client_config.get("config", {})
                     )
                 except Exception as e:
@@ -298,3 +306,38 @@ class MCPRegistry:
         except Exception as e:
             self.logger.exception(f"Error cargando configuración: {e}")
             raise 
+
+    def get_client(self, name: str, **kwargs) -> MCPClientBase:
+        """
+        Obtiene un cliente registrado.
+        
+        Si se registró una instancia de cliente directamente, devuelve esa instancia.
+        Si se registró una clase de cliente, crea una nueva instancia.
+        
+        Args:
+            name: Nombre del cliente registrado
+            **kwargs: Parámetros adicionales para la creación de la instancia
+            
+        Returns:
+            Instancia del cliente MCP
+            
+        Raises:
+            ValueError: Si el cliente no está registrado
+        """
+        # Primero buscamos en las instancias directas
+        if name in self._client_instances:
+            return self._client_instances[name]
+            
+        # Si no está en las instancias, creamos una nueva a partir de la clase
+        return self.create_client(name, **kwargs)
+
+    def get_all_clients(self) -> Dict[str, MCPClientBase]:
+        """
+        Obtiene todas las instancias de clientes registradas.
+        
+        Returns:
+            Diccionario con nombres de clientes como claves e instancias como valores
+        """
+        # Solo devolvemos las instancias directas ya que no mantenemos
+        # instancias de los clientes creados con create_client
+        return self._client_instances.copy() 

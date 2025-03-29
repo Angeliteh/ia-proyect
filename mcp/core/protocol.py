@@ -38,6 +38,7 @@ class MCPResource(str, enum.Enum):
     
     # Recursos de búsqueda
     WEB_SEARCH = "web_search"  # Búsqueda en la web
+    LOCAL_SEARCH = "local_search"  # Búsqueda local (lugares, negocios, etc.)
     DATABASE = "database"      # Base de datos
     
     # Recursos del sistema
@@ -61,6 +62,12 @@ class MCPErrorCode(str, enum.Enum):
     SERVER_ERROR = "server_error"
     NOT_IMPLEMENTED = "not_implemented"
     SERVICE_UNAVAILABLE = "service_unavailable"
+    
+    # Errores de conexión y comunicación
+    CONNECTION_ERROR = "connection_error"
+    TIMEOUT = "timeout"
+    INVALID_RESPONSE = "invalid_response"
+    UNKNOWN_ERROR = "unknown_error"
 
 
 class MCPError(Exception):
@@ -163,8 +170,8 @@ class MCPMessage:
             timestamp: Marca de tiempo (generada automáticamente si no se proporciona)
         """
         self.id = message_id or str(uuid.uuid4())
-        self.action = action if isinstance(action, str) else action.value
-        self.resource_type = resource_type if isinstance(resource_type, str) else resource_type.value
+        self.action = action if isinstance(action, MCPAction) else MCPAction(action)
+        self.resource_type = resource_type if isinstance(resource_type, MCPResource) else MCPResource(resource_type)
         self.resource_path = resource_path
         self.data = data or {}
         self.auth_token = auth_token
@@ -179,9 +186,9 @@ class MCPMessage:
         """
         return {
             "id": self.id,
-            "action": self.action,
+            "action": self.action.value,
             "resource": {
-                "type": self.resource_type,
+                "type": self.resource_type.value,
                 "path": self.resource_path
             },
             "data": self.data,
@@ -233,6 +240,81 @@ class MCPMessage:
         """
         data = json.loads(json_str)
         return cls.from_dict(data)
+        
+    @classmethod
+    def create_ping(cls) -> 'MCPMessage':
+        """
+        Crea un mensaje PING para verificar disponibilidad del servidor.
+        
+        Returns:
+            Mensaje MCP para la operación PING
+        """
+        return cls(
+            action=MCPAction.PING,
+            resource_type=MCPResource.SYSTEM,
+            resource_path="/ping",
+            data={}
+        )
+    
+    @classmethod
+    def create_capabilities_request(cls) -> 'MCPMessage':
+        """
+        Crea un mensaje para solicitar las capacidades del servidor.
+        
+        Returns:
+            Mensaje MCP para la operación CAPABILITIES
+        """
+        return cls(
+            action=MCPAction.CAPABILITIES,
+            resource_type=MCPResource.SYSTEM,
+            resource_path="/capabilities",
+            data={}
+        )
+    
+    @classmethod
+    def create_get_request(cls, resource_type: Union[MCPResource, str], resource_path: str, 
+                          params: Optional[Dict[str, Any]] = None) -> 'MCPMessage':
+        """
+        Crea un mensaje para obtener un recurso específico.
+        
+        Args:
+            resource_type: Tipo de recurso a obtener
+            resource_path: Ruta del recurso
+            params: Parámetros adicionales para la solicitud
+            
+        Returns:
+            Mensaje MCP para la operación GET
+        """
+        return cls(
+            action=MCPAction.GET,
+            resource_type=resource_type,
+            resource_path=resource_path,
+            data=params or {}
+        )
+    
+    @classmethod
+    def create_search_request(cls, resource_type: Union[MCPResource, str], query: str,
+                             params: Optional[Dict[str, Any]] = None) -> 'MCPMessage':
+        """
+        Crea un mensaje para realizar una búsqueda.
+        
+        Args:
+            resource_type: Tipo de recurso a buscar
+            query: Consulta de búsqueda
+            params: Parámetros adicionales para la búsqueda
+            
+        Returns:
+            Mensaje MCP para la operación SEARCH
+        """
+        data = params or {}
+        data["query"] = query
+        
+        return cls(
+            action=MCPAction.SEARCH,
+            resource_type=resource_type,
+            resource_path="/search",
+            data=data
+        )
 
 
 T = TypeVar('T')
@@ -381,4 +463,62 @@ class MCPResponse(Generic[T]):
             Instancia de MCPResponse con success=False
         """
         error = MCPError(code=code, message=message, details=details)
-        return cls(success=False, message_id=message_id, error=error) 
+        return cls(success=False, message_id=message_id, error=error)
+
+
+class MCPResponse:
+    """
+    Representa una respuesta en el protocolo MCP.
+    
+    Attributes:
+        message_id: ID del mensaje al que responde
+        status: Estado de la respuesta (success o error)
+        data: Datos de la respuesta
+        error: Mensaje de error si status es error
+    """
+    
+    def __init__(
+        self,
+        message_id: str,
+        status: str,
+        data: Optional[Dict[str, Any]] = None,
+        error: Optional[str] = None
+    ):
+        """
+        Inicializa una respuesta MCP.
+        
+        Args:
+            message_id: ID del mensaje al que responde
+            status: Estado de la respuesta (success o error)
+            data: Datos de la respuesta
+            error: Mensaje de error si status es error
+        """
+        self.message_id = message_id
+        self.status = status
+        self.data = data
+        self.error = error
+        self.timestamp = datetime.datetime.now()
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Convierte la respuesta a un diccionario para transmisión.
+        
+        Returns:
+            Diccionario con la información de la respuesta
+        """
+        return {
+            "message_id": self.message_id,
+            "status": self.status,
+            "data": self.data,
+            "error": self.error,
+            "timestamp": self.timestamp.isoformat()
+        }
+    
+    def to_json(self) -> str:
+        """
+        Convierte la respuesta a una cadena JSON.
+        
+        Returns:
+            Cadena JSON con la información de la respuesta
+        """
+        return json.dumps(self.to_dict()) 

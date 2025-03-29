@@ -11,10 +11,15 @@ pytest>=7.4.2
 black>=23.9.1
 isort>=5.12.0
 flake8>=6.1.0
+requests>=2.31.0
 
 # Para modelos locales
 llama-cpp-python>=0.2.32
 tiktoken>=0.5.2
+
+# Para servidores MCP
+python-dotenv>=1.0.0
+requests>=2.31.0
 
 # Opcionales para GPU (descomentar según necesidad)
 # torch>=2.1.0

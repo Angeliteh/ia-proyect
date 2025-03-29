@@ -25,9 +25,14 @@ ai-agent-system/
 ├── mcp/                  # Implementación del Model Context Protocol
 │   ├── core/             # Núcleo del protocolo y clases base
 │   ├── protocol/         # Definiciones del protocolo MCP
-│   └── connectors/       # Conectores para sistemas externos
+│   ├── connectors/       # Conectores para sistemas externos
+│   └── http/             # Componentes para comunicación HTTP
 ├── mcp_servers/          # Implementaciones de servidores MCP
+│   ├── brave_search_server.py  # Servidor MCP para Brave Search
+│   └── ...               # Otros servidores MCP
 ├── mcp_clients/          # Implementaciones de clientes MCP
+│   ├── brave_search/     # Cliente específico para Brave Search
+│   └── ...               # Otros clientes MCP
 ├── agents/               # Implementaciones de agentes
 ├── memory/               # Sistema de memoria compartida
 ├── models/               # Gestores de modelos de IA
@@ -42,7 +47,9 @@ ai-agent-system/
 ├── tests/                # Pruebas unitarias y de integración
 ├── logs/                 # Archivos de log del sistema
 └── examples/             # Scripts de ejemplo
-    └── model_manager_example.py # Demo de uso de modelos
+    ├── mcp_echo_client_example.py     # Ejemplo de cliente MCP simple
+    ├── brave_search_client_example.py # Ejemplo de cliente Brave Search
+    └── ...               # Otros ejemplos
 ```
 
 ## Acerca del Model Context Protocol (MCP)
@@ -52,6 +59,12 @@ El Model Context Protocol (MCP) es un estándar abierto desarrollado por Anthrop
 - **Conexiones bidireccionales seguras**: Entre fuentes de datos y herramientas de IA
 - **Arquitectura cliente-servidor**: Servidores MCP que exponen datos y clientes MCP que los consumen
 - **Estandarización**: Un protocolo universal para todas las integraciones
+
+Nuestra implementación incluye los componentes fundamentales del MCP:
+- **Protocolo base**: Define mensajes, acciones y tipos de recursos
+- **Servidores MCP**: Implementaciones que exponen diversos tipos de datos
+- **Clientes MCP**: Componentes que permiten a los modelos consumir datos de los servidores
+- **Registro central**: Gestiona las conexiones entre clientes y servidores
 
 Para más información sobre MCP, visite [la documentación oficial](https://www.anthropic.com/news/model-context-protocol).
 
@@ -141,9 +154,45 @@ python main.py --mode api
 
 El sistema incluye implementaciones de servidores MCP para conectar con:
 
-- **Sistema de archivos local**: Acceso a archivos y directorios locales
-- **Web Search**: Búsqueda de información en la web
-- **Base de datos**: Conexión con bases de datos (SQLite, MongoDB, etc.)
+- **Brave Search**: Acceso a la API de búsqueda web y local de Brave
+- **Sistema de archivos local**: Acceso a archivos y directorios locales (planificado)
+- **Base de datos**: Conexión con bases de datos (SQLite, MongoDB, etc.) (planificado)
+
+### Brave Search MCP Server
+
+El servidor de Brave Search permite a los modelos de IA realizar búsquedas web y locales a través de la API oficial de Brave. Características:
+
+- **Búsqueda web**: Obtención de resultados web para consultas
+- **Búsqueda local**: Búsqueda de lugares/negocios con coordenadas geográficas
+- **Fallback automático**: Si no hay resultados locales, puede usar búsqueda web como respaldo
+- **Autenticación**: Uso de API key para acceder a los servicios de Brave
+
+Ejemplo de uso:
+```python
+from mcp.core import MCPMessage
+from mcp_servers import BraveSearchMCPServer
+
+# Crear servidor (requiere API key)
+server = BraveSearchMCPServer(api_key="tu_api_key_brave")
+
+# Crear mensaje para búsqueda web
+message = MCPMessage.create_search_request(
+    resource_type="web_search", 
+    query="inteligencia artificial", 
+    params={"count": 5}
+)
+
+# Enviar mensaje y obtener respuesta
+response = server.handle_action(message)
+
+# Procesar resultados
+if response.status == "success":
+    results = response.data.get("results", [])
+    for item in results:
+        print(f"Título: {item['title']}")
+        print(f"URL: {item['url']}")
+        print(f"Descripción: {item['description'][:100]}...")
+```
 
 ## Agentes disponibles
 
