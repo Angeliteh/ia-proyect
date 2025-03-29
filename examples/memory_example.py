@@ -21,6 +21,7 @@ from memory.core.memory_system import MemorySystem
 from memory.core.memory_item import MemoryItem
 from memory.storage.in_memory_storage import InMemoryStorage
 from memory.types.episodic_memory import EpisodicMemory, Episode
+from memory.types.semantic_memory import SemanticMemory, Fact
 
 # Configure logging
 logging.basicConfig(
@@ -267,11 +268,196 @@ def run_episodic_demo():
     # Clean up by closing the database connection
     episodic_memory.storage.clear()
     print("\nEpisodic memory demonstration completed")
+
+
+def run_semantic_demo():
+    """Run a demonstration of the semantic memory system."""
+    logger.info("Running semantic memory demonstration")
     
+    # Create a temporary database path
+    db_path = "data/memory/semantic_demo.db"
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    
+    # Remove the database if it exists
+    if os.path.exists(db_path):
+        os.remove(db_path)
+    
+    # Create a memory system
+    memory_system = MemorySystem(storage=InMemoryStorage())
+    
+    # Create a semantic memory system
+    semantic_memory = SemanticMemory(memory_system, db_path=db_path)
+    
+    print("Created semantic memory system")
+    
+    # Add some facts about Paris
+    print("\nAdding facts about Paris...")
+    fact1_id = semantic_memory.add_fact(
+        subject="Paris",
+        predicate="is_capital_of",
+        object_="France",
+        confidence=1.0,
+        source="geography_knowledge"
+    )
+    
+    fact2_id = semantic_memory.add_fact(
+        subject="Paris",
+        predicate="population",
+        object_=2.161,  # In millions
+        confidence=0.9,
+        source="statistics_2023"
+    )
+    
+    fact3_id = semantic_memory.add_fact(
+        subject="Paris",
+        predicate="has_landmark",
+        object_="Eiffel Tower",
+        confidence=1.0,
+        source="tourism_data"
+    )
+    
+    fact4_id = semantic_memory.add_fact(
+        subject="Paris",
+        predicate="has_landmark",
+        object_="Louvre Museum",
+        confidence=1.0,
+        source="tourism_data"
+    )
+    
+    fact5_id = semantic_memory.add_fact(
+        subject="Paris",
+        predicate="founded_year",
+        object_=52,  # BCE
+        confidence=0.7,  # Less confidence for historical data
+        source="historical_records"
+    )
+    
+    # Add structured data as an object
+    fact6_id = semantic_memory.add_fact(
+        subject="Paris",
+        predicate="weather",
+        object_={
+            "seasons": {
+                "summer": {"avg_high": 25, "avg_low": 16},
+                "winter": {"avg_high": 8, "avg_low": 3}
+            },
+            "annual_rainfall": 637,  # mm
+            "climate_type": "oceanic"
+        },
+        confidence=0.85,
+        source="weather_data"
+    )
+    
+    # Add facts about Eiffel Tower
+    print("Adding facts about Eiffel Tower...")
+    fact7_id = semantic_memory.add_fact(
+        subject="Eiffel Tower",
+        predicate="located_in",
+        object_="Paris",
+        confidence=1.0,
+        source="geography_knowledge"
+    )
+    
+    fact8_id = semantic_memory.add_fact(
+        subject="Eiffel Tower",
+        predicate="height",
+        object_=330,  # meters
+        confidence=1.0,
+        source="architecture_data"
+    )
+    
+    fact9_id = semantic_memory.add_fact(
+        subject="Eiffel Tower",
+        predicate="built_year",
+        object_=1889,
+        confidence=1.0,
+        source="historical_records"
+    )
+    
+    # Add facts with different confidence levels about the same subject-predicate
+    print("Adding potentially conflicting facts with different confidence levels...")
+    fact10_id = semantic_memory.add_fact(
+        subject="Earth",
+        predicate="age",
+        object_=4.54,  # billion years
+        confidence=0.95,
+        source="geological_study_2020"
+    )
+    
+    fact11_id = semantic_memory.add_fact(
+        subject="Earth",
+        predicate="age",
+        object_=4.5,  # billion years (simplified)
+        confidence=0.8,
+        source="educational_material"
+    )
+    
+    # Print all facts we've added
+    print("\nAdded the following facts to semantic memory:")
+    all_subjects = semantic_memory.get_all_subjects()
+    
+    for subject in all_subjects:
+        facts = semantic_memory.get_facts_about(subject)
+        print(f"\nFacts about {subject}:")
+        
+        for fact in facts:
+            obj_str = str(fact.object)
+            if isinstance(fact.object, dict):
+                obj_str = "complex data"
+            
+            print(f"  - {fact.predicate}: {obj_str} (confidence: {fact.confidence:.2f}, source: {fact.source})")
+    
+    # Demonstrate queries
+    print("\nQuerying facts about Paris...")
+    paris_facts = semantic_memory.get_facts_about("Paris")
+    print(f"Found {len(paris_facts)} facts about Paris")
+    
+    # Demonstrate getting a specific fact value
+    capital_of = semantic_memory.get_fact_value("Paris", "is_capital_of")
+    print(f"\nParis is the capital of: {capital_of}")
+    
+    # Demonstrate querying with minimum confidence
+    print("\nFacts with confidence >= 0.9:")
+    high_confidence_facts = semantic_memory.query_facts(min_confidence=0.9)
+    for fact in high_confidence_facts:
+        print(f"  - {fact.subject} {fact.predicate} {fact.object} (confidence: {fact.confidence:.2f})")
+    
+    # Demonstrate checking for conflicts
+    print("\nChecking for conflicts in Earth's age...")
+    conflicts = semantic_memory.check_conflicts("Earth", "age")
+    if conflicts:
+        print(f"Found {len(conflicts)} conflicting facts:")
+        for fact1, fact2 in conflicts:
+            print(f"  - Conflict: {fact1.object} (confidence: {fact1.confidence:.2f}) vs {fact2.object} (confidence: {fact2.confidence:.2f})")
+    else:
+        print("No conflicts found.")
+    
+    # Demonstrate fact summary
+    print("\nGenerating fact summary for Paris:")
+    summary = semantic_memory.get_fact_summary("Paris")
+    print(summary)
+    
+    # Demonstrate accessing and updating a fact
+    print("\nRetrieving and updating a fact...")
+    fact = semantic_memory.get_fact(fact2_id)
+    if fact:
+        print(f"Original fact: {fact.subject} {fact.predicate} {fact.object} (confidence: {fact.confidence:.2f})")
+        
+        # Update confidence
+        semantic_memory.update_fact_confidence(fact2_id, 0.95)
+        
+        # Retrieve the updated fact
+        updated_fact = semantic_memory.get_fact(fact2_id)
+        print(f"Updated fact: {updated_fact.subject} {updated_fact.predicate} {updated_fact.object} (confidence: {updated_fact.confidence:.2f})")
+    
+    # Clean up by closing the database connection
+    semantic_memory.storage.clear()
+    print("\nSemantic memory demonstration completed")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Memory System Examples")
-    parser.add_argument("--demo", choices=["basic", "episodic"], default="basic",
+    parser.add_argument("--demo", choices=["basic", "episodic", "semantic"], default="basic",
                         help="Which demo to run (default: basic)")
     
     args = parser.parse_args()
@@ -280,5 +466,7 @@ if __name__ == "__main__":
         run_basic_demo()
     elif args.demo == "episodic":
         run_episodic_demo()
+    elif args.demo == "semantic":
+        run_semantic_demo()
     else:
         print(f"Unknown demo: {args.demo}") 

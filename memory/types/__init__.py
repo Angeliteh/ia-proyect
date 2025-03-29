@@ -6,5 +6,6 @@ including episodic, semantic, and procedural memory systems.
 """
 
 from .episodic_memory import EpisodicMemory, Episode
+from .semantic_memory import SemanticMemory, Fact
 
-__all__ = ["EpisodicMemory", "Episode"] 
+__all__ = ["EpisodicMemory", "Episode", "SemanticMemory", "Fact"] 

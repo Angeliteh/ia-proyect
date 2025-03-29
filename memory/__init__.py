@@ -11,6 +11,7 @@ from .core.memory_item import MemoryItem
 from .storage.base_storage import BaseStorage
 from .storage.in_memory_storage import InMemoryStorage
 from .types.episodic_memory import EpisodicMemory, Episode
+from .types.semantic_memory import SemanticMemory, Fact
 
 __all__ = [
     "MemorySystem",
@@ -18,5 +19,7 @@ __all__ = [
     "BaseStorage",
     "InMemoryStorage",
     "EpisodicMemory",
-    "Episode"
+    "Episode",
+    "SemanticMemory",
+    "Fact"
 ] 
