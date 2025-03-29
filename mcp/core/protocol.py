@@ -68,6 +68,10 @@ class MCPErrorCode(str, enum.Enum):
     TIMEOUT = "timeout"
     INVALID_RESPONSE = "invalid_response"
     UNKNOWN_ERROR = "unknown_error"
+    
+    # Errores específicos de recursos
+    RESOURCE_CONFLICT = "resource_conflict"
+    DB_ERROR = "database_error"
 
 
 class MCPError(Exception):
