@@ -1,26 +1,45 @@
 """
 Paquete MCP (Model Context Protocol).
 
-Este paquete implementa el Model Context Protocol (MCP) según el estándar de Anthropic,
-proporcionando componentes para la comunicación entre modelos de IA y fuentes de datos.
+Este paquete implementa el estándar Model Context Protocol (MCP)
+desarrollado por Anthropic, que proporciona una forma unificada
+para conectar modelos de IA con fuentes de datos y herramientas.
 """
 
-# Importar componentes principales
-from .protocol import (
-    MCPMethod,
-    MCPResponseStatus,
-    MCPRequest,
-    MCPResponse,
-    MCPTool,
-    MCPInterface
-)
+from .init import initialize_mcp, shutdown_mcp, get_registry
 
-# Exportar componentes principales
+# Importar componentes principales para facilitar su uso
+from .core.protocol import (
+    MCPMessage, 
+    MCPResponse, 
+    MCPAction, 
+    MCPResource, 
+    MCPError,
+    MCPErrorCode
+)
+from .core.server_base import MCPServerBase
+from .core.client_base import MCPClientBase, MCPHttpClient
+from .core.registry import MCPRegistry
+
 __all__ = [
-    'MCPMethod',
-    'MCPResponseStatus',
-    'MCPRequest',
+    # Funciones de inicialización
+    'initialize_mcp',
+    'shutdown_mcp',
+    'get_registry',
+    
+    # Clases del protocolo
+    'MCPMessage',
     'MCPResponse',
-    'MCPTool',
-    'MCPInterface'
-] 
+    'MCPAction',
+    'MCPResource',
+    'MCPError',
+    'MCPErrorCode',
+    
+    # Clases base
+    'MCPServerBase',
+    'MCPClientBase',
+    'MCPHttpClient',
+    'MCPRegistry'
+]
+
+__version__ = '0.1.0' 
