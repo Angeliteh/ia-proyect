@@ -95,18 +95,21 @@ class SQLiteStorage:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             
+            # Obtener source de los metadatos o usar un valor por defecto
+            source = memory.metadata.get("source", "unknown")
+            
             # Convert memory to row format
             row = (
                 memory.id,
                 json.dumps(memory.content),
-                memory.source,
+                source,  # Usar el source obtenido de los metadatos
                 memory.memory_type,
                 memory.importance,
                 memory.created_at.isoformat(),
                 memory.last_accessed.isoformat(),
                 memory.access_count,
                 json.dumps(memory.metadata),
-                json.dumps(memory.related_memories)
+                json.dumps(getattr(memory, 'related_memories', []))
             )
             
             # Insert or replace
@@ -154,18 +157,20 @@ class SQLiteStorage:
                 logger.debug(f"Memory not found in SQLite: {memory_id}")
                 return None
             
+            # Prepare metadata with source
+            metadata = json.loads(row[8]) if row[8] else {}
+            metadata["source"] = row[2]  # Add source to metadata
+            
             # Convert row to memory item
             memory_data = {
                 "id": row[0],
                 "content": json.loads(row[1]),
-                "source": row[2],
                 "memory_type": row[3],
                 "importance": row[4],
+                "metadata": metadata,
                 "created_at": row[5],
                 "last_accessed": row[6],
                 "access_count": row[7],
-                "metadata": json.loads(row[8]) if row[8] else {},
-                "related_memories": json.loads(row[9]) if row[9] else []
             }
             
             memory = MemoryItem.from_dict(memory_data)
@@ -411,8 +416,7 @@ class LongTermMemory:
         self.storage = SQLiteStorage(db_path)
         self.min_importance = min_importance
         
-        # Register with the memory system
-        self.memory_system.register_storage_backend("long_term", self.storage)
+        # Instead of registering with the memory system, we'll use our storage directly
         
         logger.info(
             f"Initialized long-term memory with db_path={db_path}, "
@@ -441,16 +445,27 @@ class LongTermMemory:
         # Ensure importance meets minimum threshold
         if importance < self.min_importance:
             importance = self.min_importance
+        
+        # Include source in metadata
+        full_metadata = metadata or {}
+        full_metadata["source"] = source
             
-        memory = MemoryItem(
+        # Creamos directamente la memoria en el sistema base
+        memory_id = self.memory_system.add_memory(
             content=content,
-            source=source,
-            memory_type="long_term",
+            memory_type="long_term",  # Forzar el tipo a long_term
             importance=importance,
-            metadata=metadata
+            metadata=full_metadata
         )
         
-        return self.memory_system.add_memory(memory)
+        # También guardamos la memoria en el SQLiteStorage para que sea visible
+        # en las estadísticas y búsquedas específicas de long_term_memory
+        memory = self.memory_system.get_memory(memory_id)
+        if memory:
+            self.storage.store(memory)
+            logger.debug(f"Memory {memory_id} also stored in SQLiteStorage")
+        
+        return memory_id
     
     def promote_from_short_term(self, memory_id: str, new_importance: Optional[float] = None) -> Optional[str]:
         """
@@ -544,23 +559,34 @@ class LongTermMemory:
         Returns:
             A dictionary with memory statistics
         """
-        total_count = self.storage.count()
-        
-        # Get count by source
-        conn = sqlite3.connect(self.storage.db_path)
-        cursor = conn.cursor()
-        
-        cursor.execute('''
-        SELECT source, COUNT(*) FROM memories
-        WHERE memory_type = 'long_term'
-        GROUP BY source
-        ''')
-        
-        source_counts = {row[0]: row[1] for row in cursor.fetchall()}
-        
-        conn.close()
-        
-        return {
-            "total_memories": total_count,
-            "sources": source_counts
-        } 
+        try:
+            # Get all memories tracked in long-term memory
+            conn = sqlite3.connect(self.storage.db_path)
+            cursor = conn.cursor()
+            
+            # Count total memories
+            cursor.execute('SELECT COUNT(*) FROM memories WHERE memory_type = "long_term"')
+            total_count = cursor.fetchone()[0] or 0
+            
+            # Get count by source
+            cursor.execute('''
+            SELECT source, COUNT(*) FROM memories
+            WHERE memory_type = 'long_term'
+            GROUP BY source
+            ''')
+            
+            source_counts = {row[0]: row[1] for row in cursor.fetchall()}
+            
+            conn.close()
+            
+            return {
+                "total_memories": total_count,
+                "sources": source_counts
+            }
+        except Exception as e:
+            logger.error(f"Error getting long-term memory stats: {e}")
+            # Return default stats if there's an error
+            return {
+                "total_memories": 0,
+                "sources": {}
+            } 

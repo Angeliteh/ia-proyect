@@ -175,9 +175,11 @@ class MemorySummarizer:
             
             # Add metadata if requested
             if include_metadata:
-                source_info = f" (from {memory.source})"
+                if hasattr(memory, 'source') and memory.source:
+                    source_info = f" (from {memory.source})"
+                    memory_summary += source_info
                 importance_info = f" [importance: {memory.importance:.2f}]"
-                memory_summary += source_info + importance_info
+                memory_summary += importance_info
             
             # Check if we can add this summary
             if len(memory_summary) > remaining_length:
@@ -201,7 +203,7 @@ class MemorySummarizer:
     
     def generate_topic_summary(self, memories: List[MemoryItem], topic: str, max_length: int = 200) -> str:
         """
-        Generate a summary focused on a specific topic from a collection of memories.
+        Generate a summary of memories related to a specific topic.
         
         Args:
             memories: List of memory items to summarize
@@ -209,49 +211,177 @@ class MemorySummarizer:
             max_length: Maximum length of the summary
             
         Returns:
-            A string summary focused on the specified topic
+            A summary focused on the specified topic
         """
         if not memories:
             return f"No memories found related to '{topic}'."
         
-        # If we have an external summarizer, use it with a prompt
-        if self.external_summarizer:
-            # Prepare combined content with a focus on the topic
-            combined_content = f"Topic: {topic}\n\nContent:\n"
-            for memory in memories:
-                if isinstance(memory.content, str):
-                    combined_content += memory.content + "\n\n"
-                else:
-                    combined_content += str(memory.content) + "\n\n"
-            
-            try:
-                # Ask the external summarizer to focus on the topic
-                prompt = f"Please provide a concise summary of the following content, focusing specifically on information related to '{topic}':\n\n{combined_content}"
-                summary = self.external_summarizer(prompt)
-                
-                if len(summary) > max_length:
-                    summary = summary[:max_length-3] + "..."
-                
-                return summary
-            except Exception as e:
-                logger.error(f"Error using external summarizer for topic summary: {e}")
-                # Fall back to basic topic summarization
-        
-        # Basic topic summarization - look for memories that might contain the topic
+        # Filter memories that might be related to the topic
+        topic_keywords = topic.lower().split()
         relevant_memories = []
         
         for memory in memories:
-            content_str = str(memory.content)
-            # Check if the topic appears in the content
-            if topic.lower() in content_str.lower():
-                relevant_memories.append(memory)
+            memory_text = self.summarize_memory(memory, max_length=200).lower()
+            relevance_score = 0
+            
+            # Simple keyword matching for relevance
+            for keyword in topic_keywords:
+                if keyword in memory_text:
+                    relevance_score += 1
+            
+            # If memory has metadata with tags or categories, check those too
+            if hasattr(memory, 'metadata') and memory.metadata:
+                if isinstance(memory.metadata.get('tags'), list):
+                    for tag in memory.metadata['tags']:
+                        if any(keyword in str(tag).lower() for keyword in topic_keywords):
+                            relevance_score += 2
+                
+                if isinstance(memory.metadata.get('category'), str):
+                    if any(keyword in memory.metadata['category'].lower() for keyword in topic_keywords):
+                        relevance_score += 2
+            
+            # If the memory seems relevant, include it
+            if relevance_score > 0:
+                relevant_memories.append((memory, relevance_score))
         
+        # If no relevant memories found, return a message
         if not relevant_memories:
-            return f"Found {len(memories)} memories, but none seem specifically related to '{topic}'."
+            return f"No memories found related to '{topic}'."
         
-        # Summarize the relevant memories
-        return self.summarize_memories(
-            relevant_memories,
+        # Sort by relevance score (highest first)
+        relevant_memories.sort(key=lambda x: x[1], reverse=True)
+        relevant_memories = [m for m, _ in relevant_memories]
+        
+        # Generate a summary focusing on the topic
+        summary = self.summarize_memories(
+            memories=relevant_memories[:5],  # Take the top 5 most relevant
             max_total_length=max_length,
-            include_metadata=True
-        ) 
+            include_metadata=False
+        )
+        
+        # Replace the generic intro with a topic-focused one
+        summary_lines = summary.split('\n')
+        topic_intro = f"Summary of information related to '{topic}':\n"
+        summary = topic_intro + '\n'.join(summary_lines[1:])
+        
+        return summary
+
+
+class Summarizer:
+    """
+    Simplified interface for memory summarization functionality.
+    
+    This class provides a simpler entry point to the more comprehensive
+    MemorySummarizer class, using default settings suitable for most use cases.
+    """
+    
+    def __init__(self):
+        """Initialize a new summarizer with default settings."""
+        # Create a simple default summarization function
+        def default_summarizer(text: str) -> str:
+            """Simple summarization function that extracts the first few sentences."""
+            # Split text into sentences (simple approach)
+            sentences = []
+            for part in text.split('. '):
+                # Handle abbreviations like "Dr." or "U.S.A."
+                if part and part[-1].isalpha():
+                    sentences.append(part + '.')
+                elif part:
+                    sentences.append(part)
+            
+            # Calculate summary length based on text size
+            if len(text) < 500:
+                summary_sentences = min(2, len(sentences))
+            elif len(text) < 1000:
+                summary_sentences = min(3, len(sentences))
+            else:
+                summary_sentences = min(4, len(sentences))
+                
+            # Create summary
+            if sentences:
+                summary = ' '.join(sentences[:summary_sentences])
+                if len(summary) > 200:
+                    summary = summary[:197] + "..."
+                return summary
+            else:
+                return text[:200] + "..." if len(text) > 200 else text
+        
+        # Initialize the full summarizer with our default function
+        self.summarizer = MemorySummarizer(
+            external_summarizer=default_summarizer
+        )
+        
+        logger.info("Initialized Summarizer with default summarization function")
+    
+    def summarize(self, texts: List[str], max_length: int = 200) -> str:
+        """
+        Generate a summary for a collection of texts.
+        
+        Args:
+            texts: List of text strings to summarize
+            max_length: Maximum length of the summary
+            
+        Returns:
+            A summarized string
+        """
+        # Convert texts to memory items
+        from ..core.memory_item import MemoryItem
+        memories = []
+        
+        for i, text in enumerate(texts):
+            # Create a temporary memory item
+            memory = MemoryItem(
+                content=text,
+                memory_type="text",
+                importance=0.5
+            )
+            memories.append(memory)
+        
+        # Generate and return the summary
+        summary = self.summarizer.summarize_memories(
+            memories=memories,
+            max_total_length=max_length,
+            include_metadata=False
+        )
+        
+        # Remove the generic intro line
+        summary_lines = summary.split('\n', 1)
+        if len(summary_lines) > 1:
+            return summary_lines[1]
+        return summary
+    
+    def summarize_memory(self, memory: MemoryItem, max_length: int = 100) -> str:
+        """
+        Generate a summary for a single memory item.
+        
+        Args:
+            memory: The memory item to summarize
+            max_length: Maximum length of the summary
+            
+        Returns:
+            A string summary of the memory
+        """
+        return self.summarizer.summarize_memory(memory, max_length=max_length)
+    
+    def summarize_memories(self, memories: List[MemoryItem], max_length: int = 200) -> str:
+        """
+        Generate a summary for multiple memory items.
+        
+        Args:
+            memories: List of memory items to summarize
+            max_length: Maximum length of the summary
+            
+        Returns:
+            A string summary of the memories
+        """
+        summary = self.summarizer.summarize_memories(
+            memories=memories,
+            max_total_length=max_length,
+            include_metadata=False
+        )
+        
+        # Remove the generic intro line
+        summary_lines = summary.split('\n', 1)
+        if len(summary_lines) > 1:
+            return summary_lines[1]
+        return summary 

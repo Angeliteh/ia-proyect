@@ -105,6 +105,51 @@ memory:
     - "semantic"         # Búsqueda por similitud semántica (vectores)
     - "temporal"         # Búsqueda por tiempo/orden
     - "relevance"        # Búsqueda por relevancia contextual
+  core_classes:
+    - name: "MemoryItem"
+      description: "Clase base para todos los ítems de memoria"
+      properties:
+        - "id"           # Identificador único
+        - "content"      # Contenido de la memoria
+        - "memory_type"  # Tipo de memoria (general, long_term, etc.)
+        - "importance"   # Valor de importancia (0-1)
+        - "metadata"     # Metadatos adicionales como source, tags, etc.
+        - "created_at"   # Momento de creación
+        - "last_accessed" # Último acceso
+        - "access_count" # Contador de accesos
+    - name: "MemoryManager"
+      description: "Gestor central de todos los sistemas de memoria"
+      methods:
+        - "add_memory"
+        - "get_memory"
+        - "update_memory"
+        - "delete_memory"
+        - "query_memories"
+        - "save_state"
+        - "load_state"
+    - name: "SpecializedMemorySystem"
+      description: "Clase base para sistemas de memoria especializados"
+      implementations:
+        - "LongTermMemory"
+        - "EpisodicMemory"
+        - "SemanticMemory"
+        - "ShortTermMemory"
+  storage_patterns:
+    - name: "DualStorage"
+      description: "Patrón para almacenar memorias tanto en el sistema base como en almacenamiento especializado"
+    - name: "MetadataSource"
+      description: "Uso de metadatos para almacenar información como source en lugar de atributos directos"
+    - name: "StatePersistence"
+      description: "Mecanismo para serializar y deserializar el estado completo del sistema de memoria"
+  processor_modules:
+    - name: "MemoryEmbedder"
+      description: "Genera embeddings vectoriales para memorias"
+      alias: "Embedder"
+    - name: "MemorySummarizer"
+      description: "Genera resúmenes concisos de memorias"
+      alias: "Summarizer"
+    - name: "MemoryClustering"
+      description: "Agrupa memorias similares en clusters"
 
 # Configuración de logging
 logging:
@@ -318,6 +363,42 @@ test_rules:
     - "integration"
     - "load"
     - "security"
+  memory_tests:
+    - name: "TestBasicMemoryOperations"
+      description: "Pruebas básicas de CRUD de memoria"
+    - name: "TestSpecializedMemorySystems"
+      description: "Pruebas específicas para cada tipo de memoria especializada"
+    - name: "TestPersistence"
+      description: "Pruebas de serialización y deserialización de estado"
+    - name: "TestSearch"
+      description: "Pruebas de búsqueda y recuperación"
+  patterns:
+    - name: "TemporaryDirectorySetup" 
+      description: "Crear directorios temporales para pruebas aisladas"
+    - name: "DatabaseConnectionClosure"
+      description: "Asegurar el cierre de conexiones a bases de datos antes de eliminar archivos"
+    - name: "DelayedVerification"
+      description: "Agregar tiempos de espera para operaciones asíncronas antes de verificar resultados"
+    - name: "DirectDatabaseInspection"
+      description: "Verificar operaciones directamente a nivel de base de datos para debugging"
+
+# Patrones de base de datos
+database:
+  sqlite:
+    patterns:
+      - name: "ConnectionClosing"
+        description: "Asegurar cierre explícito de conexiones para evitar bloqueos"
+      - name: "SerializationJSON"
+        description: "Serializar estructuras complejas como JSON para almacenamiento"
+      - name: "AttributeMapping"
+        description: "Mapeo entre atributos de clase y columnas de base de datos"
+    operations:
+      - name: "INSERT OR REPLACE"
+        description: "Usado para upsert de memorias"
+      - name: "SELECT"
+        description: "Recuperación de memorias por ID o criterios"
+      - name: "COUNT"
+        description: "Obtener estadísticas sobre memorias almacenadas"
 
 # Reglas específicas de terminal/shell
 shell:

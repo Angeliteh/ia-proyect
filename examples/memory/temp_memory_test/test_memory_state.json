@@ -1,0 +1,269 @@
+{
+  "memories": [
+    {
+      "id": "9cd93b85-5bd5-47ee-9a4b-f99b2509ceb9",
+      "content": {
+        "subject": "Python",
+        "predicate": "is_a",
+        "object": "programming language"
+      },
+      "memory_type": "fact",
+      "importance": 1.0,
+      "metadata": {
+        "confidence": 1.0,
+        "source": "memory:e219bdbd-48e9-47c4-8039-4e8e93f05325"
+      },
+      "created_at": "2025-03-30T06:22:06.301961",
+      "last_accessed": "2025-03-30T06:22:06.325981",
+      "access_count": 8
+    },
+    {
+      "id": "2f42217e-8bd2-47c5-8c39-3a633df31e31",
+      "content": "Python is known for its readability and simple syntax",
+      "memory_type": "concept",
+      "importance": 0.9,
+      "metadata": {
+        "category": "programming language",
+        "tags": [
+          "Python",
+          "syntax",
+          "readability"
+        ],
+        "source": "memory:b79e413f-aaac-488b-a3e8-994930a8483f"
+      },
+      "created_at": "2025-03-30T06:22:06.316475",
+      "last_accessed": "2025-03-30T06:22:06.321982",
+      "access_count": 4
+    },
+    {
+      "id": "b79e413f-aaac-488b-a3e8-994930a8483f",
+      "content": "Python is known for its readability and simple syntax",
+      "memory_type": "short_term",
+      "importance": 0.9,
+      "metadata": {
+        "category": "programming language",
+        "tags": [
+          "Python",
+          "syntax",
+          "readability"
+        ],
+        "source": "memory:b79e413f-aaac-488b-a3e8-994930a8483f"
+      },
+      "created_at": "2025-03-30T06:22:06.316475",
+      "last_accessed": "2025-03-30T06:22:06.326982",
+      "access_count": 2
+    },
+    {
+      "id": "1d405a97-3218-4834-831d-0db4965dd38e",
+      "content": "This is a test memory for persistence",
+      "memory_type": "general",
+      "importance": 0.9,
+      "metadata": {
+        "test": "persistence",
+        "source": "memory:1d405a97-3218-4834-831d-0db4965dd38e"
+      },
+      "created_at": "2025-03-30T06:22:06.327982",
+      "last_accessed": "2025-03-30T06:22:06.327982",
+      "access_count": 2
+    },
+    {
+      "id": "96a05e20-2480-47e9-a9ef-2a8327bdf348",
+      "content": "This is a test memory for persistence",
+      "memory_type": "short_term",
+      "importance": 0.9,
+      "metadata": {
+        "test": "persistence",
+        "source": "memory:1d405a97-3218-4834-831d-0db4965dd38e"
+      },
+      "created_at": "2025-03-30T06:22:06.327982",
+      "last_accessed": "2025-03-30T06:22:06.327982",
+      "access_count": 0
+    },
+    {
+      "id": "e219bdbd-48e9-47c4-8039-4e8e93f05325",
+      "content": {
+        "subject": "Python",
+        "predicate": "is_a",
+        "object": "programming language"
+      },
+      "memory_type": "short_term",
+      "importance": 0.8,
+      "metadata": {
+        "confidence": 1.0,
+        "source": "memory:e219bdbd-48e9-47c4-8039-4e8e93f05325"
+      },
+      "created_at": "2025-03-30T06:22:06.301961",
+      "last_accessed": "2025-03-30T06:22:06.326982",
+      "access_count": 2
+    },
+    {
+      "id": "7f705fb1-f3af-4608-91aa-49fd08ba3246",
+      "content": "Python supports multiple programming paradigms",
+      "memory_type": "concept",
+      "importance": 0.8,
+      "metadata": {
+        "category": "programming language",
+        "tags": [
+          "Python",
+          "paradigms",
+          "OOP",
+          "functional"
+        ],
+        "source": "memory:889763b8-b272-49c2-b1fe-bfe05dda9882"
+      },
+      "created_at": "2025-03-30T06:22:06.318474",
+      "last_accessed": "2025-03-30T06:22:06.322981",
+      "access_count": 4
+    },
+    {
+      "id": "889763b8-b272-49c2-b1fe-bfe05dda9882",
+      "content": "Python supports multiple programming paradigms",
+      "memory_type": "short_term",
+      "importance": 0.8,
+      "metadata": {
+        "category": "programming language",
+        "tags": [
+          "Python",
+          "paradigms",
+          "OOP",
+          "functional"
+        ],
+        "source": "memory:889763b8-b272-49c2-b1fe-bfe05dda9882"
+      },
+      "created_at": "2025-03-30T06:22:06.318474",
+      "last_accessed": "2025-03-30T06:22:06.326982",
+      "access_count": 2
+    },
+    {
+      "id": "26b760dc-80c2-4aae-94a2-c140bac97517",
+      "content": {
+        "subject": "MemoryManager",
+        "predicate": "supports",
+        "object": "persistence"
+      },
+      "memory_type": "fact",
+      "importance": 0.8,
+      "metadata": {
+        "test": "persistence",
+        "source": "memory:26b760dc-80c2-4aae-94a2-c140bac97517"
+      },
+      "created_at": "2025-03-30T06:22:06.327982",
+      "last_accessed": "2025-03-30T06:22:06.327982",
+      "access_count": 3
+    },
+    {
+      "id": "f5a6f03c-4677-4199-a6e0-d21d3d692d46",
+      "content": {
+        "subject": "MemoryManager",
+        "predicate": "supports",
+        "object": "persistence"
+      },
+      "memory_type": "short_term",
+      "importance": 0.8,
+      "metadata": {
+        "test": "persistence",
+        "source": "memory:26b760dc-80c2-4aae-94a2-c140bac97517"
+      },
+      "created_at": "2025-03-30T06:22:06.327982",
+      "last_accessed": "2025-03-30T06:22:06.327982",
+      "access_count": 0
+    },
+    {
+      "id": "f943d546-bd2c-479c-a585-398e4c9e9e21",
+      "content": {
+        "subject": "Python",
+        "predicate": "created_by",
+        "object": "Guido van Rossum"
+      },
+      "memory_type": "fact",
+      "importance": 0.7,
+      "metadata": {
+        "confidence": 1.0,
+        "source": "memory:d4cb0d96-19b8-4b85-91a7-e42960e47f87"
+      },
+      "created_at": "2025-03-30T06:22:06.301961",
+      "last_accessed": "2025-03-30T06:22:06.326982",
+      "access_count": 7
+    },
+    {
+      "id": "d4cb0d96-19b8-4b85-91a7-e42960e47f87",
+      "content": {
+        "subject": "Python",
+        "predicate": "created_by",
+        "object": "Guido van Rossum"
+      },
+      "memory_type": "short_term",
+      "importance": 0.7,
+      "metadata": {
+        "confidence": 1.0,
+        "source": "memory:d4cb0d96-19b8-4b85-91a7-e42960e47f87"
+      },
+      "created_at": "2025-03-30T06:22:06.302966",
+      "last_accessed": "2025-03-30T06:22:06.326982",
+      "access_count": 2
+    },
+    {
+      "id": "92869b83-3ab2-45e1-9b11-6a336888a76b",
+      "content": {
+        "subject": "Python",
+        "predicate": "version",
+        "object": "3.9"
+      },
+      "memory_type": "fact",
+      "importance": 0.6,
+      "metadata": {
+        "confidence": 0.9,
+        "source": "memory:92869b83-3ab2-45e1-9b11-6a336888a76b"
+      },
+      "created_at": "2025-03-30T06:22:06.302966",
+      "last_accessed": "2025-03-30T06:22:06.321982",
+      "access_count": 4
+    },
+    {
+      "id": "9aea946b-9442-43cf-965d-421cc6398fb3",
+      "content": {
+        "subject": "Python",
+        "predicate": "version",
+        "object": "3.9"
+      },
+      "memory_type": "short_term",
+      "importance": 0.6,
+      "metadata": {
+        "confidence": 0.9,
+        "source": "memory:92869b83-3ab2-45e1-9b11-6a336888a76b"
+      },
+      "created_at": "2025-03-30T06:22:06.302966",
+      "last_accessed": "2025-03-30T06:22:06.326982",
+      "access_count": 2
+    },
+    {
+      "id": "b0b956c5-ac7c-45d6-9273-9e4c02f0f231",
+      "content": "User requested code example",
+      "memory_type": "interaction",
+      "importance": 0.6,
+      "metadata": {
+        "timestamp": "2025-03-30T06:22:06.301961",
+        "episode_title": "Python Information Session",
+        "source": "memory:b0b956c5-ac7c-45d6-9273-9e4c02f0f231"
+      },
+      "created_at": "2025-03-30T06:22:06.313474",
+      "last_accessed": "2025-03-30T06:22:06.326982",
+      "access_count": 6
+    },
+    {
+      "id": "9a992cbf-bf4e-4a38-b5da-acc1c2c960b1",
+      "content": "User requested code example",
+      "memory_type": "short_term",
+      "importance": 0.6,
+      "metadata": {
+        "timestamp": "2025-03-30T06:22:06.301961",
+        "episode_title": "Python Information Session",
+        "source": "memory:b0b956c5-ac7c-45d6-9273-9e4c02f0f231"
+      },
+      "created_at": "2025-03-30T06:22:06.313474",
+      "last_accessed": "2025-03-30T06:22:06.326982",
+      "access_count": 2
+    },
+    {
+      "id": "9e6e94a0-8260-401b-8f38-bc366b8b52cc",
+      "content": 

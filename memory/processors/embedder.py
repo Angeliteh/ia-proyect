@@ -176,7 +176,7 @@ class MemoryEmbedder:
         
         for memory in memories:
             # Generate embedding if not already present
-            if not memory.embedding:
+            if not hasattr(memory, 'embedding') or memory.embedding is None:
                 memory.embedding = self.generate_embedding(memory)
             
             # Calculate similarity
@@ -198,7 +198,7 @@ class MemoryEmbedder:
             memories: List of memory items to process
         """
         for memory in memories:
-            if not memory.embedding:
+            if not hasattr(memory, 'embedding') or memory.embedding is None:
                 memory.embedding = self.generate_embedding(memory)
                 logger.debug(f"Added embedding to memory {memory.id}")
     
@@ -242,7 +242,7 @@ class MemoryEmbedder:
         # Assign remaining memories to closest cluster
         for memory in remaining:
             best_cluster = -1
-            best_similarity = -1
+            best_similarity = min_similarity  # Must meet minimum similarity
             
             for i, center in enumerate(centers):
                 similarity = self.calculate_similarity(memory.embedding, center.embedding)
@@ -250,18 +250,101 @@ class MemoryEmbedder:
                     best_similarity = similarity
                     best_cluster = i
             
-            # Only assign if similarity is above threshold
-            if best_similarity >= min_similarity:
+            if best_cluster >= 0:
                 clusters[best_cluster].append(memory)
             else:
-                # Create a new cluster if we have room
-                if len(clusters) < num_clusters:
-                    cluster_id = len(clusters)
-                    clusters[cluster_id] = [memory]
-                    centers.append(memory)
-                else:
-                    # Otherwise, assign to best cluster anyway
-                    clusters[best_cluster].append(memory)
+                # Create a new cluster if no good match
+                new_cluster_id = len(clusters)
+                clusters[new_cluster_id] = [memory]
+                centers.append(memory)
         
-        logger.info(f"Created {len(clusters)} memory clusters")
-        return clusters 
+        logger.debug(f"Created {len(clusters)} memory clusters")
+        return clusters
+
+
+class Embedder:
+    """
+    Simplified interface for memory embedding functionality.
+    
+    This class provides a simpler entry point to the more comprehensive
+    MemoryEmbedder class, using default settings suitable for most use cases.
+    """
+    
+    def __init__(self, embedding_dim: int = 768):
+        """
+        Initialize a new embedder with a default embedding function.
+        
+        Args:
+            embedding_dim: Dimension of the embedding vectors
+        """
+        # Create a simple default embedding function
+        def default_embedding_function(text: str) -> List[float]:
+            """Simple embedding function that creates a pseudo-random embedding based on text content."""
+            import hashlib
+            
+            # Create a deterministic seed based on the text
+            text_bytes = text.encode('utf-8')
+            hash_obj = hashlib.md5(text_bytes)
+            seed = int(hash_obj.hexdigest(), 16) % (2**32)
+            
+            # Set the random seed for reproducibility
+            np.random.seed(seed)
+            
+            # Generate a random embedding
+            embedding = np.random.randn(embedding_dim).tolist()
+            
+            # Normalize to unit length
+            norm = np.linalg.norm(embedding)
+            if norm > 0:
+                embedding = [x / norm for x in embedding]
+            
+            return embedding
+        
+        # Initialize the full embedder with our default function
+        self.embedder = MemoryEmbedder(
+            embedding_function=default_embedding_function,
+            embedding_dim=embedding_dim
+        )
+        
+        logger.info("Initialized Embedder with default embedding function")
+    
+    def embed_text(self, text: str) -> List[float]:
+        """
+        Generate an embedding for a text string.
+        
+        Args:
+            text: Text to embed
+            
+        Returns:
+            Vector embedding as a list of floats
+        """
+        # Create a temporary memory item
+        from ..core.memory_item import MemoryItem
+        temp_memory = MemoryItem(content=text)
+        
+        # Generate and return the embedding
+        return self.embedder.generate_embedding(temp_memory)
+    
+    def find_similar(self, query: str, memories: List[MemoryItem], top_k: int = 5) -> List[MemoryItem]:
+        """
+        Find memories similar to a query string.
+        
+        Args:
+            query: Query string to find similar memories for
+            memories: List of memory items to search through
+            top_k: Number of top results to return
+            
+        Returns:
+            List of similar memory items
+        """
+        results = self.embedder.find_similar_memories(query, memories, top_k=top_k)
+        return [memory for memory, _ in results]
+    
+    def process_memories(self, memories: List[MemoryItem]) -> None:
+        """
+        Process memories by adding embeddings to them.
+        
+        Args:
+            memories: List of memory items to process
+        """
+        self.embedder.process_memories(memories) 

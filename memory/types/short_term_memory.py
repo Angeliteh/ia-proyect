@@ -48,8 +48,8 @@ class ShortTermMemory:
         self.capacity = capacity
         self.cleanup_interval = cleanup_interval_seconds
         
-        # Register with the memory system
-        self.memory_system.register_storage_backend("short_term", self.storage)
+        # Instead of registering with the memory system, just maintain our own cache of memory IDs
+        self.memory_ids = set()
         
         # Setup cleanup thread
         self._stop_cleanup = threading.Event()
@@ -83,15 +83,21 @@ class ShortTermMemory:
         Perform the actual cleanup operation.
         """
         cutoff_time = datetime.now() - timedelta(minutes=self.retention_minutes)
-        memories = self.storage.list(limit=1000)  # Get all memories
         
-        # Find memories to forget
+        # Get all memories in our tracked set
+        memories = []
         to_forget = []
         
-        # First, identify memories older than the retention period
-        for memory in memories:
-            if memory.created_at < cutoff_time:
-                to_forget.append(memory.id)
+        for memory_id in list(self.memory_ids):
+            memory = self.memory_system.get_memory(memory_id)
+            if memory:
+                memories.append(memory)
+                # Check if memory is older than the retention period
+                if memory.created_at < cutoff_time:
+                    to_forget.append(memory.id)
+            else:
+                # Memory no longer exists in the base system
+                to_forget.append(memory_id)
         
         # If we're still over capacity after time-based forgetting,
         # forget the least recently accessed memories
@@ -107,7 +113,8 @@ class ShortTermMemory:
         
         # Forget all identified memories
         for memory_id in to_forget:
-            self.memory_system.forget_memory(memory_id)
+            if memory_id in self.memory_ids:
+                self.memory_ids.remove(memory_id)
         
         if to_forget:
             logger.debug(f"Short-term memory cleanup: forgot {len(to_forget)} memories")
@@ -140,15 +147,22 @@ class ShortTermMemory:
         Returns:
             The ID of the created memory
         """
-        memory = MemoryItem(
+        # Add metadata about short-term memory
+        full_metadata = metadata or {}
+        full_metadata["source"] = source
+
+        # Create memory in the base system
+        memory_id = self.memory_system.add_memory(
             content=content,
-            source=source,
             memory_type="short_term",
             importance=importance,
-            metadata=metadata
+            metadata=full_metadata
         )
         
-        return self.memory_system.add_memory(memory)
+        # Track this memory ID in our short-term memory
+        self.memory_ids.add(memory_id)
+        
+        return memory_id
     
     def get_recent(self, limit: int = 10) -> List[MemoryItem]:
         """
@@ -160,19 +174,23 @@ class ShortTermMemory:
         Returns:
             A list of recent memory items
         """
-        return self.memory_system.search_by_recency(
-            memory_type="short_term",
-            limit=limit
-        )
+        # Get all memories tracked in our short-term memory
+        memories = []
+        for memory_id in self.memory_ids:
+            memory = self.memory_system.get_memory(memory_id)
+            if memory:
+                memories.append(memory)
+        
+        # Sort by recency (created_at) and return the most recent
+        memories.sort(key=lambda m: m.created_at, reverse=True)
+        return memories[:limit]
     
     def clear(self) -> None:
         """
         Clear all memories from short-term memory.
         """
-        memories = self.memory_system.search_by_type("short_term", limit=1000)
-        for memory in memories:
-            self.memory_system.forget_memory(memory.id)
-        
+        # Note: We don't delete memories from the base system, just stop tracking them
+        self.memory_ids.clear()
         logger.info("Short-term memory cleared")
     
     def get_by_source(self, source: str, limit: int = 10) -> List[MemoryItem]:
@@ -186,7 +204,40 @@ class ShortTermMemory:
         Returns:
             A list of memory items from the specified source
         """
-        memories = self.memory_system.search_by_source(source, limit=1000)
-        # Filter to only short-term memories
-        filtered = [m for m in memories if m.memory_type == "short_term"]
-        return filtered[:limit] 
+        # Get all memories tracked in our short-term memory
+        all_memories = []
+        for memory_id in self.memory_ids:
+            memory = self.memory_system.get_memory(memory_id)
+            if memory:
+                all_memories.append(memory)
+        
+        # Filter by source
+        filtered = [m for m in all_memories if m.metadata.get("source") == source]
+        
+        # Sort by recency and limit
+        filtered.sort(key=lambda m: m.created_at, reverse=True)
+        return filtered[:limit]
+    
+    def get_all_item_ids(self) -> List[str]:
+        """
+        Get all memory IDs tracked in short-term memory.
+        
+        Returns:
+            A list of memory IDs
+        """
+        return list(self.memory_ids)
+    
+    def remove_item(self, memory_id: str) -> bool:
+        """
+        Remove a memory from short-term tracking (without deleting it).
+        
+        Args:
+            memory_id: The ID of the memory to remove
+            
+        Returns:
+            True if the memory was removed, False if it wasn't tracked
+        """
+        if memory_id in self.memory_ids:
+            self.memory_ids.remove(memory_id)
+            return True
+        return False 
