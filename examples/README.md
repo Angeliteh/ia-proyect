@@ -51,11 +51,36 @@ Para ejecutar todas las pruebas disponibles:
 python run_tests.py --run-all
 ```
 
+### Verificar el uso de módulos reales vs. fallbacks
+
+El sistema está diseñado para usar implementaciones reales cuando están disponibles, con fallbacks para fines de demostración. Puede verificar si un test está usando implementaciones reales con:
+
+```bash
+python run_tests.py --run brave:api --check-real-modules
+```
+
+Los fallbacks se usan con fines informativos y no se consideran errores.
+
 ### Opciones adicionales
 
 - `--verbose` o `-v`: Muestra información detallada durante la ejecución de las pruebas
 - `--save-report`: Guarda un informe detallado de los resultados en formato JSON
 - `--report-file`: Especifica el nombre del archivo para el informe (por defecto: `test_report.json`)
+- `--check-real-modules`: Verifica si se están usando implementaciones reales o fallbacks
+
+## Flujos de Trabajo Predefinidos
+
+El sistema de pruebas incluye varios flujos de trabajo predefinidos que comprueban múltiples componentes en secuencia:
+
+- **basic_validation**: Comprueba componentes básicos como el gestor de modelos, núcleo MCP, y agente Echo
+- **brave_search**: Verifica el flujo completo de búsqueda Brave desde API hasta cliente MCP
+- **full_system**: Validación completa del sistema con todos los componentes
+
+Para ejecutar un flujo de trabajo:
+
+```bash
+python run_tests.py --workflow brave_search
+```
 
 ## Ejemplos por Categoría
 
@@ -91,7 +116,7 @@ Algunos ejemplos pueden requerir configuración adicional:
 
 ## Reportes de Pruebas
 
-El nuevo sistema de ejecución de pruebas genera reportes detallados que incluyen:
+El sistema de ejecución de pruebas genera reportes detallados que incluyen:
 
 - Resumen de pruebas pasadas, fallidas y omitidas
 - Tiempos de ejecución para cada prueba

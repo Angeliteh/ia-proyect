@@ -19,7 +19,8 @@ structure:
       - "core"           # Núcleo del protocolo (protocol.py, server_base.py, client_base.py, registry.py)
       - "protocol"       # Definiciones y extensiones del protocolo
       - "connectors"     # Adaptadores y conectores genéricos
-      - "http"           # Componentes para comunicación HTTP
+      - "transport"      # Componentes de transporte
+      - "utils"          # Utilidades para MCP
     - "mcp_servers"      # Servidores MCP para exponer datos
       - "brave_search"   # Servidor MCP para Brave Search API
       - "filesystem"     # Servidor MCP para sistema de archivos
@@ -28,11 +29,12 @@ structure:
       - "direct"         # Cliente MCP para conexión directa (in-memory)
       - "http"           # Cliente MCP para conexión vía HTTP
       - "brave_search"   # Cliente específico para Brave Search
-    - "agents"           # Implementaciones de agentes
-      - "base"           # Clases base para agentes
-      - "communication"  # Sistema de comunicación entre agentes
-      - "specialized"    # Agentes especializados (código, sistema, etc.)
-      - "orchestrator"   # Agente orquestador para coordinar otros agentes
+    - "agents"           # Implementaciones de agentes (archivos planos)
+                         # base.py - Clase base para todos los agentes
+                         # agent_communication.py - Sistema de comunicación entre agentes
+                         # echo_agent.py - Agente de eco para pruebas
+                         # code_agent.py - Agente especializado en código
+                         # system_agent.py - Agente para interactuar con el sistema
     - "memory"           # Sistema de memoria compartida
       - "core"           # Núcleo del sistema de memoria
       - "storage"        # Backends de almacenamiento (sqlite, redis, etc.)
@@ -52,6 +54,7 @@ structure:
       - "models"         # Ejemplos de uso de modelos
       - "agents"         # Ejemplos de uso de agentes
       - "memory"         # Ejemplos de uso del sistema de memoria
+      - "integration"    # Ejemplos de integración entre componentes
 
 # Reglas de documentación
 documentation:

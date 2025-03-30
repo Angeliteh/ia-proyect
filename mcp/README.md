@@ -17,7 +17,8 @@ El sistema MCP está diseñado con los siguientes componentes principales:
 ### Transporte (`mcp/transport/`)
 
 - **http_server.py**: Implementa un servidor HTTP para exponer servidores MCP a través de REST.
-- (Planificado) **websocket.py**: Soporte para comunicación MCP vía WebSockets.
+- **websocket_server.py**: Soporte para comunicación MCP vía WebSockets.
+- **base.py**: Define interfaces base para transportes MCP.
 
 ### Conectores (`mcp/connectors/`)
 

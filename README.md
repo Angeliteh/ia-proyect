@@ -26,15 +26,27 @@ ai-agent-system/
 │   ├── core/             # Núcleo del protocolo y clases base
 │   ├── protocol/         # Definiciones del protocolo MCP
 │   ├── connectors/       # Conectores para sistemas externos
-│   └── http/             # Componentes para comunicación HTTP
+│   ├── transport/        # Componentes para comunicación (HTTP, WebSockets)
+│   ├── utils/            # Utilidades para MCP
+│   └── README.md         # Documentación detallada del MCP
 ├── mcp_servers/          # Implementaciones de servidores MCP
-│   ├── brave_search_server.py  # Servidor MCP para Brave Search
-│   └── ...               # Otros servidores MCP
+│   ├── brave_search/     # Servidor MCP para Brave Search
+│   ├── sqlite/           # Servidor MCP para bases de datos SQLite
+│   └── README.md         # Documentación de servidores MCP
 ├── mcp_clients/          # Implementaciones de clientes MCP
 │   ├── brave_search/     # Cliente específico para Brave Search
-│   └── ...               # Otros clientes MCP
+│   ├── http/             # Cliente genérico HTTP para MCP
+│   └── README.md         # Documentación de clientes MCP
 ├── agents/               # Implementaciones de agentes
+│   ├── base.py           # Clase base para todos los agentes
+│   ├── agent_communication.py  # Sistema de comunicación entre agentes
+│   ├── echo_agent.py     # Agente de eco simple (para pruebas)
+│   ├── code_agent.py     # Agente especializado en tareas de código
+│   └── system_agent.py   # Agente para interacción con el sistema
 ├── memory/               # Sistema de memoria compartida
+│   ├── core/             # Núcleo del sistema de memoria
+│   ├── storage/          # Backends de almacenamiento
+│   └── types/            # Tipos especializados de memoria
 ├── models/               # Gestores de modelos de IA
 │   ├── core/             # Componentes core como ResourceDetector
 │   ├── cloud/            # Modelos de IA en la nube (OpenAI, Anthropic)
@@ -46,10 +58,14 @@ ai-agent-system/
 ├── utils/                # Utilidades generales
 ├── tests/                # Pruebas unitarias y de integración
 ├── logs/                 # Archivos de log del sistema
-└── examples/             # Scripts de ejemplo
-    ├── mcp_echo_client_example.py     # Ejemplo de cliente MCP simple
-    ├── brave_search_client_example.py # Ejemplo de cliente Brave Search
-    └── ...               # Otros ejemplos
+├── examples/             # Scripts de ejemplo
+│   ├── mcp/              # Ejemplos de uso del MCP
+│   ├── models/           # Ejemplos de uso de modelos
+│   ├── agents/           # Ejemplos de uso de agentes
+│   ├── memory/           # Ejemplos de uso del sistema de memoria
+│   ├── integration/      # Tests de integración entre componentes
+│   └── README.md         # Guía para ejecutar ejemplos y tests
+└── data/                 # Directorio para datos y recursos
 ```
 
 ## Acerca del Model Context Protocol (MCP)
