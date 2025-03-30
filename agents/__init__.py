@@ -9,6 +9,7 @@ from .echo_agent import EchoAgent
 from .code_agent import CodeAgent
 from .system_agent import SystemAgent
 from .orchestrator_agent import OrchestratorAgent
+from .planner_agent import PlannerAgent
 from .agent_communication import (
     MessageType, 
     Message, 
@@ -26,6 +27,7 @@ __all__ = [
     'CodeAgent', 
     'SystemAgent',
     'OrchestratorAgent',
+    'PlannerAgent',
     'MessageType',
     'Message',
     'AgentCommunicator',

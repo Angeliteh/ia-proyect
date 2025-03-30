@@ -172,6 +172,17 @@ class OrchestratorAgent(BaseAgent):
         steps = workflow["steps"]
         results = []
         
+        # Verificar si este workflow viene de un PlannerAgent
+        from_planner = any("task_id" in step for step in steps)
+        planner_id = None
+        
+        # Si el workflow viene de un PlannerAgent, identificar el planner para actualizaciones
+        if from_planner:
+            for agent_id, agent_info in self.available_agents.items():
+                if "task_planning" in agent_info["capabilities"]:
+                    planner_id = agent_id
+                    break
+        
         for i, step in enumerate(steps):
             self.logger.info(f"Executing workflow {workflow_id} step {i}: {step.get('description', 'Unknown')[:50]}...")
             
@@ -182,15 +193,42 @@ class OrchestratorAgent(BaseAgent):
             agent_type = step.get("type")
             description = step.get("description", "")
             
+            # Variables para actualizar el PlannerAgent
+            task_id = step.get("task_id")
+            
             # Get an available agent of the appropriate type
             try:
-                agent_id = await self._select_agent_for_task(agent_type, description, workflow["context"])
+                # Selección de agente: ahora también considera las capacidades requeridas
+                if "required_capabilities" in step and step["required_capabilities"]:
+                    agent_id = await self._select_agent_for_capabilities(
+                        step["required_capabilities"], 
+                        description, 
+                        workflow["context"]
+                    )
+                else:
+                    agent_id = await self._select_agent_for_task(
+                        agent_type, 
+                        description, 
+                        workflow["context"]
+                    )
+                    
                 step["assigned_agent"] = agent_id
                 
                 if not agent_id:
                     self.logger.warning(f"No suitable agent found for step {i} (type: {agent_type})")
                     step["status"] = "failed"
                     results.append(f"Step {i+1} failed: No suitable agent available for {agent_type} tasks")
+                    
+                    # Notificar al PlannerAgent si corresponde
+                    if from_planner and planner_id and task_id:
+                        await self._update_planner_task_status(
+                            planner_id, 
+                            workflow_id, 
+                            task_id, 
+                            "FAILED", 
+                            error="No se encontró un agente adecuado"
+                        )
+                    
                     continue
                     
                 # Determine input for this step based on previous results
@@ -198,60 +236,120 @@ class OrchestratorAgent(BaseAgent):
                 if i > 0 and results:
                     # Include previous results as context
                     previous_result = results[-1]
-                    if previous_result:
-                        step_input = f"{step_input}\n\nPrevious step result: {previous_result}"
+                    if not previous_result.startswith("Step"):  # Only if it's a real result, not an error message
+                        step_input = f"{description}\n\nResultado previo: {previous_result}"
                 
-                # Send the request to the selected agent
-                self.logger.info(f"Sending request to agent {agent_id} for step {i}")
+                # Execute the step with the selected agent
+                self.logger.info(f"Delegating step to agent {agent_id}")
                 
-                # Prepare context específico para cada tipo de agente
-                agent_context = {"from_orchestrator": True, "workflow_id": workflow_id, "step": i}
+                # Notify PlannerAgent that task is starting
+                if from_planner and planner_id and task_id:
+                    await self._update_planner_task_status(
+                        planner_id, 
+                        workflow_id, 
+                        task_id, 
+                        "IN_PROGRESS", 
+                        agent_id=agent_id
+                    )
                 
-                # Agregar contexto específico para el tipo de agente
-                if agent_type == "code":
-                    # Determinar el lenguaje de programación y tipo de tarea para CodeAgent
-                    # Buscar menciones específicas de lenguajes en la descripción o la consulta original
-                    language = self._detect_code_language(description, workflow["query"])
-                    
-                    # Si estamos procesando algo relacionado con Fibonacci, especificamos Python claramente
-                    if "fibonacci" in description.lower() or "fibonacci" in workflow["query"].lower():
-                        language = "python"
-                        
-                    agent_context.update({
-                        "language": language,
-                        "task": "generate",  # Podríamos hacer más sofisticada la detección de tarea
-                        "sender_id": self.agent_id
-                    })
-                elif agent_type == "system":
-                    agent_context.update({
-                        "task_type": "file_operation" if "archivo" in description.lower() else "system_info",
-                        "sender_id": self.agent_id
-                    })
+                # Prepare step context
+                step_context = {
+                    "workflow_id": workflow_id,
+                    "step_number": i + 1,
+                    "from_orchestrator": True,
+                    **(workflow["context"] or {})
+                }
                 
-                response = await self._send_agent_request(self.agent_id, agent_id, step_input, agent_context)
+                # Add original task details
+                step_context["original_task"] = workflow["query"]
                 
-                if response:
-                    result = response.content
-                    step["status"] = "completed"
-                    step["result"] = result
-                    results.append(result)
-                    self.logger.info(f"Step {i} completed by agent {agent_id}")
-                else:
+                # Execute the step
+                response = await self._send_agent_request(
+                    self.agent_id, 
+                    agent_id, 
+                    step_input, 
+                    step_context
+                )
+                
+                if not response:
+                    error_msg = f"Step {i+1} failed: Agent {agent_id} did not respond in time"
+                    self.logger.warning(error_msg)
                     step["status"] = "failed"
-                    results.append(f"Step {i+1} failed: No response from agent {agent_id}")
-                    self.logger.warning(f"No response from agent {agent_id} for step {i}")
+                    results.append(error_msg)
+                    
+                    # Notificar al PlannerAgent si corresponde
+                    if from_planner and planner_id and task_id:
+                        await self._update_planner_task_status(
+                            planner_id, 
+                            workflow_id, 
+                            task_id, 
+                            "FAILED", 
+                            error="Agent timeout"
+                        )
+                    
+                    continue
                 
-            except Exception as step_error:
-                self.logger.error(f"Error executing step {i}: {str(step_error)}")
-                step["status"] = "error"
-                step["error"] = str(step_error)
-                results.append(f"Step {i+1} error: {str(step_error)}")
+                # Process the response
+                step["status"] = "completed" if response.status == "success" else "failed"
+                results.append(response.content)
+                
+                # Store the result in the workflow
+                if "results" not in workflow:
+                    workflow["results"] = []
+                workflow["results"].append({
+                    "step": i,
+                    "agent": agent_id,
+                    "content": response.content,
+                    "status": response.status
+                })
+                
+                # Notify PlannerAgent of task completion
+                if from_planner and planner_id and task_id:
+                    if response.status == "success":
+                        await self._update_planner_task_status(
+                            planner_id, 
+                            workflow_id, 
+                            task_id, 
+                            "COMPLETED", 
+                            result=response.content
+                        )
+                    else:
+                        await self._update_planner_task_status(
+                            planner_id, 
+                            workflow_id, 
+                            task_id, 
+                            "FAILED", 
+                            error=f"Agent {agent_id} failed: {response.status}"
+                        )
+                
+            except Exception as e:
+                self.logger.error(f"Error executing step {i}: {str(e)}")
+                step["status"] = "failed"
+                results.append(f"Step {i+1} failed: {str(e)}")
+                
+                # Notificar al PlannerAgent si corresponde
+                if from_planner and planner_id and task_id:
+                    await self._update_planner_task_status(
+                        planner_id, 
+                        workflow_id, 
+                        task_id, 
+                        "FAILED", 
+                        error=str(e)
+                    )
         
-        # Combine results for final output
-        if results:
-            return results[-1]  # Return the last step's result
-        else:
-            return "No results were generated during workflow execution"
+        # Combine the results
+        if not results:
+            return "No results were produced"
+            
+        # For tasks that expect specific outputs (like code generation), 
+        # prefer to return only the last step's result
+        if any(step.get("type") == "code" for step in steps):
+            for result in reversed(results):
+                if "```" in result or "function" in result.lower() or "class" in result.lower():
+                    return result
+        
+        # Otherwise, return a combined result
+        return "\n\n".join(results)
     
     def _detect_code_language(self, description: str, query: str) -> str:
         """
@@ -1399,13 +1497,33 @@ class OrchestratorAgent(BaseAgent):
         """
         self.logger.info(f"Planificando workflow para: {query[:50]}...")
         
-        # Elegir un agente planificador, preferentemente uno con capacidades de código
-        planner_id = await self._select_agent_for_task("code", query, context or {})
-        
         steps = []
         
-        # Intentar usar un planificador externo si está disponible
+        # Comprobar si hay un PlannerAgent disponible
+        planner_id = None
+        for agent_id, agent_info in self.available_agents.items():
+            if "task_planning" in agent_info["capabilities"]:
+                planner_id = agent_id
+                break
+                
+        # Intentar usar el PlannerAgent si está disponible
         if planner_id:
+            try:
+                self.logger.info(f"Delegando planificación al agente especializado {planner_id}")
+                steps = await self._delegate_to_planner_agent(planner_id, query, context)
+                if steps:
+                    self.logger.info(f"Planificación exitosa usando PlannerAgent con {len(steps)} pasos")
+                    return steps
+                else:
+                    self.logger.warning("La planificación con PlannerAgent falló o devolvió un plan vacío")
+            except Exception as e:
+                self.logger.warning(f"Error delegando a PlannerAgent: {str(e)}")
+        
+        # Si no hay PlannerAgent disponible o falló, intentar usar un CodeAgent como planificador
+        code_planner_id = await self._select_agent_for_task("code", query, context or {})
+        
+        # Intentar usar un planificador de código externo si está disponible
+        if code_planner_id:
             try:
                 # Crear un prompt de planificación
                 planning_prompt = f"""
@@ -1435,7 +1553,7 @@ class OrchestratorAgent(BaseAgent):
                 # Enviar la solicitud de planificación al agente planificador
                 planning_response = await self._send_agent_request(
                     self.agent_id, 
-                    planner_id,
+                    code_planner_id,
                     planning_prompt,
                     {"original_task": query, **(context or {})}
                 )
@@ -1458,6 +1576,126 @@ class OrchestratorAgent(BaseAgent):
         
         return steps
         
+    async def _delegate_to_planner_agent(self, planner_id: str, query: str, context: Optional[Dict] = None) -> List[Dict]:
+        """
+        Delega la planificación al PlannerAgent especializado.
+        
+        Args:
+            planner_id: ID del PlannerAgent
+            query: La consulta del usuario
+            context: Contexto opcional
+            
+        Returns:
+            Lista de pasos para el workflow generada por el PlannerAgent
+        """
+        self.logger.info(f"Delegando planificación a PlannerAgent {planner_id} para: {query[:50]}...")
+        
+        planner_context = {
+            "from_orchestrator": True,
+            "available_agents": {
+                agent_id: info["capabilities"] 
+                for agent_id, info in self.available_agents.items()
+            },
+            **(context or {})
+        }
+        
+        # Enviar la solicitud al PlannerAgent
+        try:
+            response = await self._send_agent_request(
+                self.agent_id,
+                planner_id,
+                query,
+                planner_context
+            )
+            
+            if not response:
+                self.logger.warning("No se recibió respuesta del PlannerAgent")
+                return []
+                
+            # Extraer el plan de la respuesta
+            plan_data = response.metadata.get("plan", {})
+            
+            if not plan_data:
+                self.logger.warning("El PlannerAgent no devolvió un plan válido")
+                return []
+                
+            # Convertir el plan a formato de pasos de workflow
+            steps = []
+            execution_order = plan_data.get("execution_order", [])
+            tasks = plan_data.get("tasks", {})
+            
+            for task_id in execution_order:
+                task = tasks.get(task_id, {})
+                if not task:
+                    continue
+                    
+                # Determinar el tipo de agente basado en las capacidades requeridas
+                agent_type = self._determine_agent_type_from_capabilities(task.get("required_capabilities", []))
+                
+                steps.append({
+                    "type": agent_type,
+                    "description": task.get("description", ""),
+                    "status": "pending",
+                    "required_capabilities": task.get("required_capabilities", []),
+                    "task_id": task_id
+                })
+                
+            self.logger.info(f"Plan generado por PlannerAgent con {len(steps)} pasos")
+            return steps
+                
+        except Exception as e:
+            self.logger.error(f"Error al delegar la planificación: {str(e)}")
+            return []
+            
+    def _determine_agent_type_from_capabilities(self, capabilities: List[str]) -> str:
+        """
+        Determina el tipo de agente más apropiado basado en las capacidades requeridas.
+        
+        Args:
+            capabilities: Lista de capacidades requeridas
+            
+        Returns:
+            Tipo de agente (code, system, echo)
+        """
+        # Crear un mapa de capacidades a tipos de agentes
+        capability_map = {
+            # Capacidades del CodeAgent
+            "code_generation": "code",
+            "analysis": "code",
+            "problem_solving": "code",
+            "testing": "code",
+            "verification": "code",
+            
+            # Capacidades del SystemAgent
+            "system_operations": "system",
+            "file_management": "system",
+            "execute_command": "system",
+            "process_management": "system",
+            
+            # Capacidades del EchoAgent y generales
+            "echo": "echo",
+            "test": "echo",
+            "general_processing": "echo",
+            "information_retrieval": "echo",
+            "search": "echo",
+            "summarization": "echo"
+        }
+        
+        # Contar los tipos de agentes que coinciden con cada capacidad
+        type_counts = {"code": 0, "system": 0, "echo": 0}
+        
+        for capability in capabilities:
+            agent_type = capability_map.get(capability, "echo")  # Por defecto, usar echo
+            type_counts[agent_type] += 1
+            
+        # Seleccionar el tipo con más coincidencias
+        if type_counts["code"] > 0:
+            return "code"
+        elif type_counts["system"] > 0:
+            return "system"
+        else:
+            return "echo"
+    
     async def _direct_agent_handling(self, query: str, context: Optional[Dict] = None) -> AgentResponse:
         """
         Maneja una tarea directamente con el agente más apropiado cuando falla la orquestación.
@@ -1651,4 +1889,100 @@ class OrchestratorAgent(BaseAgent):
             return AgentResponse(
                 content=f"Error al procesar la tarea de código: {str(e)}",
                 status="error"
-            ) 
+            )
+    
+    async def _select_agent_for_capabilities(self, required_capabilities: List[str], description: str, context: Optional[Dict] = None) -> Optional[str]:
+        """
+        Selecciona un agente basado en las capacidades requeridas para una tarea.
+        
+        Args:
+            required_capabilities: Lista de capacidades requeridas
+            description: Descripción de la tarea
+            context: Contexto opcional
+            
+        Returns:
+            ID del agente seleccionado, o None si no se encuentra ninguno adecuado
+        """
+        self.logger.info(f"Seleccionando agente para capacidades {required_capabilities}")
+        
+        best_agent_id = None
+        best_match_score = -1
+        
+        for agent_id, agent_info in self.available_agents.items():
+            # Skip agents that are not idle
+            if agent_info.get("status") != "idle":
+                continue
+            
+            # Calculate capability match score
+            agent_capabilities = set(agent_info.get("capabilities", []))
+            req_capabilities = set(required_capabilities)
+            
+            if not req_capabilities:
+                # If no specific capabilities required, any agent can do it
+                match_score = 1
+            else:
+                # Calculate match as proportion of required capabilities the agent has
+                if not agent_capabilities:
+                    match_score = 0
+                else:
+                    intersection = req_capabilities.intersection(agent_capabilities)
+                    match_score = len(intersection) / len(req_capabilities) if req_capabilities else 0
+            
+            # Consider agent's recent usage (prefer less recently used agents)
+            last_used = agent_info.get("last_used")
+            recency_bonus = 0.1 if last_used is None else 0
+            
+            # Final score
+            score = match_score + recency_bonus
+            
+            if score > best_match_score:
+                best_match_score = score
+                best_agent_id = agent_id
+        
+        return best_agent_id if best_match_score > 0 else None
+    
+    async def _update_planner_task_status(self, planner_id: str, plan_id: str, task_id: str, status: str, result: Optional[str] = None, error: Optional[str] = None, agent_id: Optional[str] = None) -> None:
+        """
+        Actualiza el estado de una tarea en el PlannerAgent.
+        
+        Args:
+            planner_id: ID del PlannerAgent
+            plan_id: ID del plan
+            task_id: ID de la tarea
+            status: Nuevo estado de la tarea (PENDING, IN_PROGRESS, COMPLETED, FAILED)
+            result: Resultado opcional (si la tarea se completó)
+            error: Error opcional (si la tarea falló)
+            agent_id: ID opcional del agente asignado a la tarea
+        """
+        try:
+            # Crear contexto con la información de la tarea
+            task_context = {
+                "update_type": "task_status",
+                "plan_id": plan_id,
+                "task_id": task_id,
+                "status": status
+            }
+            
+            if agent_id:
+                task_context["assigned_agent"] = agent_id
+                
+            if result:
+                task_context["result"] = result
+                
+            if error:
+                task_context["error"] = error
+            
+            # Construir mensaje de actualización
+            message = f"update_task:{task_id}:{status}"
+            
+            # Enviar actualización al PlannerAgent
+            self.logger.info(f"Actualizando tarea {task_id} en PlannerAgent {planner_id}: {status}")
+            await self._send_agent_request(
+                self.agent_id,
+                planner_id,
+                message,
+                task_context
+            )
+            
+        except Exception as e:
+            self.logger.warning(f"Error actualizando tarea en PlannerAgent: {str(e)}") 
