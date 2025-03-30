@@ -47,8 +47,51 @@ class CodeAgent(BaseAgent):
         if not self.model_manager:
             self.model_manager = ModelManager()
             
-        # Set the default model name
-        self.model_name = config.get("default_model", "gemini-2.0-flash")
+        # Set the default model name - try to use models that are known to be available
+        # Orden de preferencia: Gemini, modelos locales (Mistral, Phi), y luego otros
+        preferred_model_order = [
+            # Gemini primero
+            "gemini-2.0-flash", "gemini-pro", "gemini-1.5-flash",
+            # Modelos locales después
+            "mistral-7b-instruct", "phi-2", "llama-2-7b-chat",
+            # Otros modelos cloud como respaldo
+            "claude-3-haiku-20240307", "gpt-3.5-turbo"
+        ]
+        
+        # Usar el modelo especificado en la configuración, si existe
+        self.model_name = config.get("model", None)
+        
+        # Si no se especificó un modelo, buscar uno disponible según la preferencia
+        if not self.model_name:
+            try:
+                # Obtener la lista de modelos disponibles
+                available_models = self.model_manager.list_available_models()
+                available_model_names = [model["name"] for model in available_models]
+                
+                if available_model_names:
+                    # Recorrer la lista de modelos preferidos y usar el primero que esté disponible
+                    for model_name in preferred_model_order:
+                        if model_name in available_model_names:
+                            self.model_name = model_name
+                            self.logger.info(f"Usando modelo preferido: {self.model_name}")
+                            break
+                    
+                    # Si ningún modelo preferido está disponible, usar el primero de la lista
+                    if not self.model_name:
+                        self.model_name = available_model_names[0]
+                        self.logger.info(f"Usando primer modelo disponible: {self.model_name}")
+                else:
+                    # Si no hay modelos disponibles, usar el primero de la lista de preferencias
+                    self.model_name = preferred_model_order[0]
+                    self.logger.warning(f"No se encontraron modelos disponibles, usando modelo por defecto: {self.model_name}")
+                    
+            except Exception as e:
+                self.logger.warning(f"Error obteniendo modelos disponibles: {str(e)}")
+                # Usar Gemini como fallback si hay error
+                self.model_name = "gemini-2.0-flash"
+                self.logger.warning(f"Usando modelo por defecto debido a error: {self.model_name}")
+        
+        self.logger.info(f"Code agent initialized with model: {self.model_name}")
         
         # Track supported languages
         self.supported_languages = config.get(
@@ -56,7 +99,6 @@ class CodeAgent(BaseAgent):
             ["python", "javascript", "typescript", "java", "c", "c++", "c#", "go", "rust", "sql"]
         )
         
-        self.logger.info(f"Code agent initialized with model: {self.model_name}")
         self.logger.info(f"Supported languages: {', '.join(self.supported_languages)}")
     
     async def process(self, query: str, context: Optional[Dict] = None) -> AgentResponse:
@@ -83,8 +125,45 @@ class CodeAgent(BaseAgent):
         self.logger.info(f"Processing code task: {task} (language: {language})")
         
         try:
-            # Load the model
-            model, model_info = await self.model_manager.load_model(self.model_name)
+            # Intentar cargar el modelo
+            model = None
+            model_info = None
+            error_messages = []
+            
+            # Lista de modelos para intentar en orden de preferencia
+            models_to_try = [self.model_name]
+            
+            # Si existe un modelo local Mistral, agregarlo como fallback
+            mistral_path = "models/local/Mistral-7B-Instruct-v0.3.Q4_K_M.gguf"
+            if os.path.exists(mistral_path):
+                models_to_try.append("mistral-7b-instruct")
+                self.logger.info("Se encontró modelo local Mistral, se usará como fallback")
+            
+            # Intentar modelos en orden
+            for model_name in models_to_try:
+                try:
+                    self.logger.info(f"Intentando cargar modelo: {model_name}")
+                    model, model_info = await self.model_manager.load_model(model_name)
+                    self.logger.info(f"Modelo cargado correctamente: {model_name}")
+                    break
+                except Exception as model_error:
+                    error_message = f"No se pudo cargar el modelo {model_name}: {str(model_error)}"
+                    self.logger.warning(error_message)
+                    error_messages.append(error_message)
+                    continue
+            
+            # Si no se pudo cargar ningún modelo
+            if model is None:
+                # Si estamos en modo orquestador o sistema, proporcionar una respuesta básica
+                if context.get("from_orchestrator") or "system" in context.get("sender_id", ""):
+                    return self._generate_basic_response(query, task, language, code)
+                
+                # Sino, propagar el error para que el usuario sepa qué pasó
+                raise ValueError(f"No se pudo cargar ningún modelo. Errores: {'; '.join(error_messages)}")
+            
+            # Si llegamos aquí, el modelo se cargó correctamente
+            # Actualizar el nombre del modelo utilizado
+            self.model_name = model_info.name
             
             # Build prompt based on the task
             prompt = self._build_prompt(query, task, language, code)
@@ -110,6 +189,14 @@ class CodeAgent(BaseAgent):
         except Exception as e:
             self.logger.error(f"Error processing code query: {str(e)}")
             self.set_state("error")
+            
+            # Intentar generar una respuesta básica si viene del orquestador
+            if context.get("from_orchestrator") or "orchestrator" in context.get("sender_id", ""):
+                try:
+                    return self._generate_basic_response(query, task, language, code)
+                except Exception as fallback_error:
+                    self.logger.error(f"Error generando respuesta básica: {str(fallback_error)}")
+            
             return AgentResponse(
                 content=f"Error processing your code request: {str(e)}",
                 status="error",
@@ -134,154 +221,248 @@ class CodeAgent(BaseAgent):
     
     def _detect_task(self, query: str) -> str:
         """
-        Detect the type of coding task from the query.
+        Detect the type of code task from the query.
         
         Args:
-            query: The user query
+            query: The query text
             
         Returns:
-            Task type string
+            Task type (generate, explain, improve, fix)
         """
-        query = query.lower()
-        
-        if any(x in query for x in ["generate", "create", "write", "implement"]):
-            return "generate"
-        elif any(x in query for x in ["explain", "understand", "what does", "how does"]):
-            return "explain"
-        elif any(x in query for x in ["improve", "optimize", "refactor", "better"]):
-            return "improve"
-        elif any(x in query for x in ["fix", "debug", "error", "wrong", "issue", "problem"]):
-            return "fix"
-        elif any(x in query for x in ["review", "analyze", "check"]):
-            return "review"
-        else:
-            return "generate"  # Default task
-    
-    def _detect_language(self, query: str, code: str) -> str:
-        """
-        Detect the programming language from the query or code.
-        
-        Args:
-            query: The user query
-            code: Any provided code
-            
-        Returns:
-            Language identifier string
-        """
-        # First check if language is explicitly mentioned in query
-        query = query.lower()
-        
-        for lang in self.supported_languages:
-            if lang in query:
-                return lang
-        
-        # If code is provided, try to guess from code
-        if code:
-            # Check for common language markers
-            if re.search(r'^\s*(import|from|def|class|if __name__)', code, re.MULTILINE):
-                return "python"
-            elif re.search(r'^\s*(function|const|let|var|import\s+{|export)', code, re.MULTILINE):
-                # Could be JavaScript or TypeScript
-                return "typescript" if ".ts" in query or ": " in code else "javascript"
-            elif re.search(r'^\s*(public class|private|protected|import java)', code, re.MULTILINE):
-                return "java"
-            elif re.search(r'^\s*(#include)', code, re.MULTILINE):
-                return "c++" if re.search(r'(class|namespace|template|std::)', code) else "c"
-            elif re.search(r'^\s*(using System|namespace|public class)', code, re.MULTILINE):
-                return "c#"
-            elif re.search(r'^\s*(package main|import ")', code, re.MULTILINE):
-                return "go"
-            elif re.search(r'^\s*(use std|fn main|pub struct)', code, re.MULTILINE):
-                return "rust"
-            elif re.search(r'^\s*(SELECT|CREATE TABLE|INSERT INTO)', code, re.MULTILINE, re.IGNORECASE):
-                return "sql"
-        
-        # Default to Python if we can't detect
-        return "python"
-    
-    def _build_prompt(self, query: str, task: str, language: str, code: str) -> str:
-        """
-        Build a prompt for the code model based on the task.
-        
-        Args:
-            query: User query
-            task: The type of task
-            language: Programming language
-            code: Existing code if any
-            
-        Returns:
-            Prompt string for the model
-        """
-        prompts = {
-            "generate": f"""
-You are an expert programmer. Generate {language} code based on this request:
-
-{query}
-
-Write well-structured, commented, and efficient code.
-            """,
-            
-            "explain": f"""
-You are an expert programmer. Explain this {language} code in detail:
-
-```{language}
-{code}
-```
-
-{query}
-
-Break down the explanation by sections and highlight important concepts.
-            """,
-            
-            "improve": f"""
-You are an expert programmer. Improve this {language} code:
-
-```{language}
-{code}
-```
-
-{query}
-
-Explain what improvements you made and why.
-            """,
-            
-            "fix": f"""
-You are an expert programmer. Fix this {language} code that has issues:
-
-```{language}
-{code}
-```
-
-{query}
-
-Explain what was wrong and how you fixed it.
-            """,
-            
-            "review": f"""
-You are an expert programmer. Review this {language} code:
-
-```{language}
-{code}
-```
-
-{query}
-
-Point out strengths, weaknesses, bugs, and suggest improvements.
-            """
+        # Palabras clave que indican tipos de tarea
+        task_keywords = {
+            "generate": r"\bgenera\b|\bcrea\b|\bescribe\b|\bimplementa\b|\bprograma\b|\bescriba\b|\bhaz\b|\bhacer\b",
+            "explain": r"\bexplica\b|\bcomenta\b|\bdocumenta\b|\bentender\b|\bentienda\b|\bque hace\b|\bcómo funciona\b",
+            "improve": r"\bmejora\b|\boptimiza\b|\brefactoriza\b|\brefina\b|\benhance\b",
+            "fix": r"\bcorrige\b|\barregla\b|\bsoluciona\b|\bfix\b|\bdebug\b|\berror\b|\bfalla\b|\bproblema\b"
         }
         
-        # Use the appropriate prompt template or fall back to a generic one
-        prompt_template = prompts.get(task, f"""
-You are an expert programmer. Help with this {language} programming request:
+        # Comprobar si la consulta contiene palabras clave de tareas
+        for task, pattern in task_keywords.items():
+            if re.search(pattern, query, re.IGNORECASE):
+                return task
+                
+        # Si contiene palabras clave relacionadas con código pero no con tareas específicas,
+        # probablemente sea una solicitud de generación
+        code_related = r"\bcódigo\b|\bprograma\b|\bfunción\b|\balgorithm\b|\bscript\b|\bprogramación\b"
+        if re.search(code_related, query, re.IGNORECASE):
+            return "generate"
+            
+        # Default a generación si no se detecta ninguna tarea específica
+        return "generate"
+    
+    def _detect_language(self, query: str, code: str = "") -> str:
+        """
+        Detect the programming language from query or code.
+        
+        Args:
+            query: The query text
+            code: Existing code (if any)
+            
+        Returns:
+            Detected language or default language
+        """
+        # Si hay código existente, intentar detectar el lenguaje de la sintaxis
+        if code:
+            # Verificar extensiones/sintaxis comunes
+            if re.search(r"def\s+\w+\s*\(|import\s+\w+|from\s+\w+\s+import|print\s*\(", code):
+                return "python"
+            elif re.search(r"function\s+\w+\s*\(|var\s+\w+\s*=|let\s+\w+\s*=|const\s+\w+\s*=", code):
+                return "javascript"
+            elif re.search(r"public\s+class|private\s+\w+|protected\s+\w+|import\s+java\.", code):
+                return "java"
+            # Más patrones para otros lenguajes...
+        
+        # Palabras clave que indican lenguajes de programación en la consulta
+        language_keywords = {
+            "python": r"\bpython\b|\bpy\b",
+            "javascript": r"\bjavascript\b|\bjs\b",
+            "typescript": r"\btypescript\b|\bts\b",
+            "java": r"\bjava\b(?!\s*script)",
+            "c#": r"\bc#\b|\.net\b|csharp\b",
+            "c++": r"\bc\+\+\b|\bcpp\b",
+            "c": r"\bc\s+code\b|\bc\s+program\b|\bin\s+c\b(?!\+)|\bc\b(?!\+|\#|\s*language)",
+            "go": r"\bgo\b|\bgolang\b",
+            "rust": r"\brust\b",
+            "sql": r"\bsql\b"
+        }
+        
+        # Palabras específicas que indican claramente un lenguaje
+        if "script en Python" in query or "código Python" in query or "programa Python" in query:
+            return "python"
+        
+        # Verificar palabras clave en la consulta
+        for language, pattern in language_keywords.items():
+            if re.search(pattern, query, re.IGNORECASE):
+                return language
+        
+        # Verificar si la tarea menciona un lenguaje específico
+        if "fibonacci" in query.lower() and "python" in query.lower():
+            return "python"
+            
+        # Verificar si hay menciones específicas de bibliotecas o frameworks
+        if any(lib in query.lower() for lib in ["pandas", "numpy", "matplotlib", "django", "flask"]):
+            return "python"
+        elif any(lib in query.lower() for lib in ["react", "vue", "angular", "node"]):
+            return "javascript"
+        
+        # Default to Python para tareas de algoritmos básicos si no se especifica
+        if any(word in query.lower() for word in ["algoritmo", "secuencia", "fibonacci", "factorial", "ordenamiento", "búsqueda"]):
+            return "python"
+        
+        # Por defecto, devolver Python
+        return "python"
+    
+    def _build_prompt(self, query: str, task: str, language: str, code: str = "") -> str:
+        """
+        Build a prompt for the code agent based on the task type.
+        
+        Args:
+            query: The user query
+            task: Type of task (generate, explain, improve, fix)
+            language: Programming language to use
+            code: Existing code (if any)
+            
+        Returns:
+            Properly formatted prompt for the model
+        """
+        # Determinar si estamos usando un modelo local
+        is_local_model = False
+        try:
+            model_info = self.model_manager.models_info.get(self.model_name)
+            if model_info and model_info.local:
+                is_local_model = True
+                self.logger.info(f"Usando formato de prompt para modelo local: {self.model_name}")
+        except Exception as e:
+            self.logger.warning(f"Error al determinar si el modelo es local: {str(e)}")
+        
+        # Prompt base según el tipo de tarea
+        if task == "generate":
+            if is_local_model:
+                # Prompt más simple y directo para modelos locales
+                prompt = f"""<|im_start|>system
+Eres un programador experto que genera código limpio, bien comentado y optimizado, siguiendo las mejores prácticas.
+<|im_end|>
+<|im_start|>user
+Necesito que generes código en {language} para: {query}
+<|im_end|>
+<|im_start|>assistant
+"""
+            else:
+                prompt = (
+                    f"Eres un programador experto en {language}. "
+                    f"Genera el código para: {query}\n\n"
+                    f"Sé conciso y muestra solo el código con comentarios mínimos "
+                    f"necesarios para entenderlo. Usa las mejores prácticas para {language}."
+                )
+        
+        elif task == "explain":
+            # El código a explicar debe estar presente
+            if not code:
+                code = "// No se proporcionó código para explicar"
+            
+            if is_local_model:
+                prompt = f"""<|im_start|>system
+Eres un programador experto que explica código de manera clara y concisa.
+<|im_end|>
+<|im_start|>user
+Por favor explica el siguiente código en {language}:
+
+```{language}
+{code}
+```
 
 {query}
-
-{f"Here is the relevant code:\n\n```{language}\n{code}\n```" if code else ""}
-
-Provide a clear and detailed response.
-        """)
+<|im_end|>
+<|im_start|>assistant
+"""
+            else:
+                prompt = (
+                    f"Explica el siguiente código en {language}:\n\n"
+                    f"```{language}\n{code}\n```\n\n"
+                    f"Consulta adicional: {query}\n\n"
+                    f"Proporciona una explicación clara y detallada de lo que hace el código."
+                )
         
-        return prompt_template.strip()
+        elif task == "improve":
+            if not code:
+                code = f"// No se proporcionó código en {language} para mejorar"
+            
+            if is_local_model:
+                prompt = f"""<|im_start|>system
+Eres un programador experto que mejora código existente haciéndolo más eficiente, legible y siguiendo las mejores prácticas.
+<|im_end|>
+<|im_start|>user
+Mejora el siguiente código en {language}:
+
+```{language}
+{code}
+```
+
+Instrucciones adicionales: {query}
+<|im_end|>
+<|im_start|>assistant
+"""
+            else:
+                prompt = (
+                    f"Mejora el siguiente código en {language}:\n\n"
+                    f"```{language}\n{code}\n```\n\n"
+                    f"Instrucciones para la mejora: {query}\n\n"
+                    f"Proporciona el código mejorado y explica brevemente las mejoras realizadas."
+                )
+        
+        elif task == "fix":
+            if not code:
+                code = f"// No se proporcionó código en {language} para arreglar"
+            
+            if is_local_model:
+                prompt = f"""<|im_start|>system
+Eres un programador experto que corrige errores en el código y resuelve problemas.
+<|im_end|>
+<|im_start|>user
+Corrige el siguiente código en {language} que tiene errores:
+
+```{language}
+{code}
+```
+
+Descripción del problema: {query}
+<|im_end|>
+<|im_start|>assistant
+"""
+            else:
+                prompt = (
+                    f"Corrige el siguiente código en {language} que tiene errores:\n\n"
+                    f"```{language}\n{code}\n```\n\n"
+                    f"Descripción del problema: {query}\n\n"
+                    f"Proporciona el código corregido y explica qué errores había y cómo los solucionaste."
+                )
+        
+        else:  # general code question
+            if is_local_model:
+                prompt = f"""<|im_start|>system
+Eres un programador experto que responde preguntas de programación de manera clara y concisa.
+<|im_end|>
+<|im_start|>user
+Pregunta de programación relacionada con {language}: {query}
+
+{f"Código de referencia:\n```{language}\n{code}\n```" if code else ""}
+<|im_end|>
+<|im_start|>assistant
+"""
+            else:
+                # Consulta general de programación
+                prompt = (
+                    f"Responde la siguiente pregunta sobre programación en {language}:\n\n"
+                    f"{query}\n\n"
+                )
+                
+                if code:
+                    prompt += f"Código de referencia:\n```{language}\n{code}\n```\n\n"
+                    
+                prompt += "Proporciona una respuesta clara y concisa, con ejemplos de código si es necesario."
+        
+        return prompt
     
     def _process_response(self, response: str, task: str) -> str:
         """
@@ -311,4 +492,103 @@ Provide a clear and detailed response.
                 return response
         
         # Default: return the full response
-        return response 
+        return response
+
+    def _generate_basic_response(self, query: str, task: str, language: str, code: str) -> AgentResponse:
+        """
+        Genera una respuesta básica sin utilizar un modelo de IA.
+        Es útil como respuesta de fallback cuando no hay un modelo disponible.
+        
+        Args:
+            query: La consulta original
+            task: El tipo de tarea
+            language: El lenguaje de programación
+            code: Código existente, si lo hay
+            
+        Returns:
+            AgentResponse con una respuesta básica
+        """
+        self.logger.info(f"Generando respuesta básica para tarea: {task} en {language}")
+        
+        response_content = ""
+        
+        if task == "generate" and language == "python":
+            if "fibonacci" in query.lower():
+                response_content = """
+# Programa Python para calcular los primeros 10 números de Fibonacci
+def fibonacci(n):
+    fib_sequence = [0, 1]
+    while len(fib_sequence) < n:
+        fib_sequence.append(fib_sequence[-1] + fib_sequence[-2])
+    return fib_sequence
+
+# Generar y mostrar los primeros 10 números
+fib_numbers = fibonacci(10)
+print("Los primeros 10 números de Fibonacci son:")
+print(fib_numbers)
+"""
+            elif "factorial" in query.lower():
+                response_content = """
+# Programa Python para calcular el factorial de un número
+def factorial(n):
+    if n == 0 or n == 1:
+        return 1
+    else:
+        return n * factorial(n-1)
+
+# Probar con algunos números
+for i in range(5):
+    print(f"{i}! = {factorial(i)}")
+"""
+            else:
+                response_content = """
+# Programa Python básico
+def main():
+    print("Hola, mundo!")
+    # Aquí iría el código específico para tu tarea
+    # Pero sin un modelo de IA, no puedo generar código personalizado
+    
+if __name__ == "__main__":
+    main()
+"""
+        elif task == "explain":
+            response_content = f"""
+# Explicación básica del código
+'''
+Para explicar este código en detalle, necesitaría acceso a un modelo de IA.
+Sin embargo, puedo decirte que este es código en {language}.
+
+Puntos generales a considerar cuando analices código:
+1. Revisar la estructura general y flujo del programa
+2. Identificar funciones y sus propósitos
+3. Entender las estructuras de datos utilizadas
+4. Revisar manejo de excepciones y casos de borde
+
+Para un análisis detallado, considera agregar una API key válida para el modelo {self.model_name}.
+'''
+"""
+        else:
+            response_content = f"""
+# Respuesta para solicitud de código
+'''
+He recibido tu solicitud para {task} código en {language}.
+Sin embargo, no tengo acceso a un modelo de IA en este momento para generar una respuesta personalizada.
+
+Para obtener mejores resultados:
+1. Asegúrate de configurar una API key válida para {self.model_name}
+2. Proporciona más detalles sobre tu solicitud específica
+3. Incluye código existente si es relevante
+
+Alternativamente, puedes usar el EchoAgent o SystemAgent para tareas que no requieran generación de código.
+'''
+"""
+
+        return AgentResponse(
+            content=response_content,
+            metadata={
+                "task": task,
+                "language": language,
+                "fallback": True,
+                "model_used": "none"
+            }
+        ) 

@@ -44,8 +44,8 @@ try:
     from mcp.core import MCPMessage, MCPResponse, MCPAction, MCPResource, MCPError
     from mcp.core import MCPServerBase, MCPClientBase, MCPRegistry
     # Importar de init.py funciones específicas
-    from mcp.core.init import initialize_mcp, shutdown_mcp, get_registry
-    
+from mcp.core.init import initialize_mcp, shutdown_mcp, get_registry
+
     logger.info("Módulos MCP core importados correctamente")
     USING_REAL_MODULES = True
 except ImportError as e:
@@ -214,8 +214,8 @@ except ImportError as e:
                                 code=MCPErrorCode.INVALID_REQUEST,
                                 message=f"Invalid message format: {str(e)}"
                             )
-                        )
-                else:
+                )
+            else:
                     return MCPResponse(
                         message_id="unknown",
                         success=False,
@@ -232,19 +232,19 @@ except ImportError as e:
                 except Exception as e:
                     logger.exception(f"Error handling action {action}")
                     return MCPResponse(
-                        message_id=message.id,
+                    message_id=message.id,
                         success=False,
                         error=MCPError(
                             code=MCPErrorCode.SERVER_ERROR,
                             message=f"Error handling action {action}: {str(e)}"
                         )
-                    )
+                )
             else:
                 return MCPResponse(
                     message_id=message.id,
                     success=False,
                     error=MCPError(
-                        code=MCPErrorCode.NOT_IMPLEMENTED,
+                    code=MCPErrorCode.NOT_IMPLEMENTED,
                         message=f"Action {action} not implemented"
                     )
                 )
@@ -280,7 +280,7 @@ except ImportError as e:
         
         async def connect(self, server):
             """Conectar con un servidor."""
-            self.server = server
+        self.server = server
             logger.info(f"Cliente {self.client_id} conectado al servidor {server.name}")
             return True
         
@@ -289,7 +289,7 @@ except ImportError as e:
             if self.server:
                 logger.info(f"Cliente {self.client_id} desconectado del servidor {self.server.name}")
                 self.server = None
-                return True
+        return True
             return False
         
         async def send_message(self, message):
@@ -418,10 +418,10 @@ async def run_demo():
     """Ejecutar una demostración del sistema MCP."""
     
     # Inicializar el sistema MCP
-    registry = initialize_mcp()
+        registry = initialize_mcp()
     logger.info("Sistema MCP inicializado")
-    
-    # Crear y registrar un servidor de eco
+        
+        # Crear y registrar un servidor de eco
     echo_server = SimpleEchoServer()
     registry.register_server("echo", echo_server)
     
@@ -477,8 +477,8 @@ async def run_demo():
     logger.info(f"Respuesta CUSTOM: {json.dumps(custom_response.to_dict(), indent=2)}")
     
     # Desconectar el cliente
-    await client.disconnect()
-    
+        await client.disconnect()
+        
     # Finalizar el sistema MCP
     shutdown_mcp()
     logger.info("Demostración completada")

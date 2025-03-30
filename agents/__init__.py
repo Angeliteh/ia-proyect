@@ -8,6 +8,7 @@ from .base import BaseAgent, AgentResponse
 from .echo_agent import EchoAgent
 from .code_agent import CodeAgent
 from .system_agent import SystemAgent
+from .orchestrator_agent import OrchestratorAgent
 from .agent_communication import (
     MessageType, 
     Message, 
@@ -24,6 +25,7 @@ __all__ = [
     'EchoAgent', 
     'CodeAgent', 
     'SystemAgent',
+    'OrchestratorAgent',
     'MessageType',
     'Message',
     'AgentCommunicator',

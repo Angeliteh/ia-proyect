@@ -215,7 +215,7 @@ except ImportError as e:
                     return "```python\ndef hello_world():\n    print('¡Hola, mundo!')\n\nhello_world()\n```"
                 else:
                     return "```javascript\nfunction helloWorld() {\n    console.log('¡Hola, mundo!');\n}\n\nhelloWorld();\n```"
-            else:
+        else:
                 return f"Esta es una respuesta simulada de {model_name}. El modelo ha procesado tu solicitud: '{prompt}' y ha generado esta respuesta. Esto es solo una demostración."
 
 def main():
@@ -300,6 +300,6 @@ def main():
     
     print(f"\nRespuesta del modelo:")
     print(f"{respuesta}")
-    
+
 if __name__ == "__main__":
     main() 

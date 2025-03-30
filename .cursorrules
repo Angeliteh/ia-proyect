@@ -29,12 +29,18 @@ structure:
       - "direct"         # Cliente MCP para conexión directa (in-memory)
       - "http"           # Cliente MCP para conexión vía HTTP
       - "brave_search"   # Cliente específico para Brave Search
-    - "agents"           # Implementaciones de agentes (archivos planos)
-                         # base.py - Clase base para todos los agentes
-                         # agent_communication.py - Sistema de comunicación entre agentes
-                         # echo_agent.py - Agente de eco para pruebas
-                         # code_agent.py - Agente especializado en código
-                         # system_agent.py - Agente para interactuar con el sistema
+    - "agents"           # Implementaciones de agentes
+      - "base"           # Agentes base y fundamentales
+        # base.py - Clase base para todos los agentes
+        # agent_communication.py - Sistema de comunicación entre agentes
+      - "specialized"    # Agentes especializados como CodeAgent y SystemAgent
+        # code_agent.py - Agente especializado en código
+        # system_agent.py - Agente para interactuar con el sistema
+      - "test"           # Agentes de prueba como TestSenderAgent, EchoAgent
+        # echo_agent.py - Agente de eco para pruebas
+        # test_sender.py - Agente para verificar comunicación
+      - "orchestrator"   # Agente orquestador y sus componentes
+        # orchestrator_agent.py - Agente para coordinar otros agentes
     - "memory"           # Sistema de memoria compartida
       - "core"           # Núcleo del sistema de memoria
       - "storage"        # Backends de almacenamiento (sqlite, redis, etc.)
@@ -228,6 +234,18 @@ models:
       - "ram_usage"
       - "model_size"
       - "performance"
+  fallback:
+    enabled: true
+    strategy: "preference_order"  # Preferencia ordenada de modelos
+    cloud_to_local_fallback: true  # Si falla un modelo cloud, intentar local
+    local_to_cloud_fallback: false  # No ir de local a cloud por defecto
+    wait_between_attempts: 1.0  # Segundos entre intentos
+  prompt_templates:
+    default: "standard"  # Plantilla estándar por defecto
+    local:
+      format: "alpaca"  # Formato <|im_start|>system, etc.
+    cloud:
+      format: "standard"  # Formato más simple
 
 # Reglas de agentes
 agents:
@@ -244,6 +262,7 @@ agents:
   types:
     - name: "EchoAgent"
       description: "Agente básico que repite lo que recibe (demo)"
+      capabilities: ["echo", "test"]
     - name: "CodeAgent"
       description: "Agente especializado en tareas de programación"
       capabilities: ["generate", "explain", "improve", "fix"]
@@ -253,6 +272,9 @@ agents:
     - name: "OrchestratorAgent"
       description: "Agente para coordinar otros agentes"
       capabilities: ["task_planning", "agent_selection", "workflow_management"]
+    - name: "TestSenderAgent"
+      description: "Agente para verificar la comunicación entre agentes"
+      capabilities: ["test_messaging", "communication_verification"]
   communication:
     message_types:
       - "request"       # Solicitud de acción
@@ -263,6 +285,31 @@ agents:
     components:
       - "message"       # Clase para representar mensajes
       - "communicator"  # Sistema de enrutamiento de mensajes
+    timeouts:
+      default: 30       # 30 segundos por defecto
+      code_agent: 60    # 60 segundos para CodeAgent (modelos más lentos)
+      orchestrator: 120 # 120 segundos para tareas de orquestación
+    retry_policy:
+      attempts: 2
+      backoff_multiplier: 1.5
+  performance:
+    metrics:
+      - "latency"
+      - "success_rate"
+      - "token_usage"
+    benchmarks:
+      - name: "echo_benchmark"
+        description: "Prueba básica de eco"
+      - name: "code_generation"
+        description: "Generación de código para Fibonacci"
+  error_handling:
+    strategies:
+      - "retry"
+      - "fallback_agent"
+      - "simplified_task"
+    timeout_recovery:
+      enabled: true
+      max_retries: 3
 
 # Reglas de testing
 test_rules:

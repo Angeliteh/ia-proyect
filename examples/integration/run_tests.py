@@ -209,6 +209,18 @@ TEST_CONFIG = {
                 "files": [],
                 "env_vars": []
             }
+        },
+        "orchestrator": {
+            "module": "orchestrator_example.py",
+            "dir": "../agents",
+            "args": "",
+            "expected_result": 0,
+            "description": "Test del Agente Orquestador para coordinar agentes especializados",
+            "dependencies": {
+                "packages": [],
+                "files": [],
+                "env_vars": []
+            }
         }
     },
     "models": {
@@ -307,6 +319,17 @@ TEST_WORKFLOWS = {
             {"test": "agents:code", "depends_on": "models_ready"},
             {"test": "memory:basic", "depends_on": "models_ready"},
             {"test": "agents:communication", "depends_on": ["models_ready", "mcp_ready"]}
+        ]
+    },
+    "orchestration_workflow": {
+        "name": "Workflow de Orquestación",
+        "description": "Prueba de orquestación de múltiples agentes",
+        "steps": [
+            "models:manager",  # Verificar que el gestor de modelos funciona
+            "agents:echo",     # Probar agente echo básico
+            "agents:code",     # Probar agente de código
+            "agents:system",   # Probar agente de sistema
+            "agents:orchestrator"  # Probar el orquestador
         ]
     }
 }

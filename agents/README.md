@@ -16,6 +16,8 @@ El sistema de agentes está organizado de manera modular, con los siguientes com
 
 - **[`system_agent.py`](./system_agent.py)**: Un agente para interactuar con el sistema operativo, permitiendo ejecutar comandos, administrar archivos y procesos.
 
+- **[`orchestrator_agent.py`](./orchestrator_agent.py)**: Un agente orquestador que coordina múltiples agentes especializados para resolver tareas complejas mediante planificación y ejecución de workflows.
+
 ## Sistema de Comunicación entre Agentes
 
 Los agentes pueden comunicarse entre sí a través del sistema implementado en `agent_communication.py`, que proporciona:
@@ -60,6 +62,63 @@ Todos los agentes basados en `BaseAgent` implementan una máquina de estados sim
 - **error**: El agente ha encontrado un error y necesita ser restablecido
 
 Las transiciones válidas entre estados están definidas y aplicadas en el método `set_state()`.
+
+## Agente Orquestador
+
+El `OrchestratorAgent` es responsable de coordinar múltiples agentes especializados para resolver tareas complejas. Sus principales capacidades incluyen:
+
+### Planificación de Tareas
+- Divide tareas complejas en subtareas manejables
+- Asigna tipos de agentes apropiados para cada subtarea
+- Establece dependencias entre subtareas cuando es necesario
+
+### Selección de Agentes
+- Elige el mejor agente disponible para cada subtarea basándose en capacidades, estado y rendimiento
+- Implementa mecanismos de fallback cuando los agentes ideales no están disponibles
+- Mantiene un registro del estado de cada agente (idle/busy)
+
+### Gestión de Workflows
+- Ejecuta subtareas en secuencia, respetando dependencias
+- Maneja errores y fallas en los pasos del workflow
+- Proporciona resultados consolidados de la ejecución completa
+- Mantiene un historial de workflows ejecutados
+
+### Ejemplo de uso del Orquestador:
+
+```python
+from agents import EchoAgent, CodeAgent, SystemAgent, OrchestratorAgent, communicator
+
+# Crear agentes especializados
+echo_agent = EchoAgent("echo1", {"name": "Echo Agent"})
+code_agent = CodeAgent("code1", {"name": "Code Agent"})
+system_agent = SystemAgent("system1", {"name": "System Agent"})
+
+# Crear orquestador
+orchestrator = OrchestratorAgent("orchestrator", {"name": "Orchestrator"})
+
+# Registrar agentes
+communicator.register_agent(echo_agent)
+communicator.register_agent(code_agent)
+communicator.register_agent(system_agent)
+communicator.register_agent(orchestrator)
+
+# Registrar agentes con el orquestador
+await orchestrator.register_available_agent("echo1", echo_agent.get_capabilities())
+await orchestrator.register_available_agent("code1", code_agent.get_capabilities())
+await orchestrator.register_available_agent("system1", system_agent.get_capabilities())
+
+# Ejecutar una tarea compleja
+response = await orchestrator.process(
+    "Genera un script en Python que liste archivos en el directorio actual " +
+    "y luego ejecútalo para ver el resultado"
+)
+
+print(f"Resultado: {response.content}")
+
+# Ver workflows completados
+workflows = await orchestrator.list_workflows(status="completed")
+print(f"Workflows completados: {len(workflows)}")
+```
 
 ## Implementando un Nuevo Agente
 

@@ -206,6 +206,7 @@ class AgentCommunicator:
         if message.reference_id and message.reference_id in self._response_waiters:
             future = self._response_waiters[message.reference_id]
             if not future.done():
+                self.logger.info(f"Entregando respuesta para solicitud {message.reference_id} de {message.sender_id}")
                 future.set_result(message)
             return
         
@@ -224,13 +225,44 @@ class AgentCommunicator:
             await self.send_message(error_msg)
             return
         
-        # Trigger any registered message handlers
+        # Obtener el agente directamente
+        agent = self.agents[receiver_id]
+        self.logger.info(f"Entregando mensaje de {message.sender_id} a {receiver_id}: {message.content[:50]}...")
+        
+        # Si es un mensaje de solicitud, intenta procesar directamente primero
+        if message.msg_type == MessageType.REQUEST:
+            try:
+                # Intentar procesar directamente con el agente para mejorar la confiabilidad
+                response = await agent.process(message.content, message.context)
+                
+                # Crear y enviar la respuesta
+                response_msg = message.create_response(
+                    content=response.content,
+                    context=response.metadata
+                )
+                
+                # Ajustar el tipo de mensaje según el estado de la respuesta
+                if response.status != "success":
+                    response_msg.msg_type = MessageType.ERROR
+                    
+                self.logger.info(f"Procesado directo exitoso, enviando respuesta a {message.sender_id}")
+                await self.send_message(response_msg)
+                return
+            except Exception as e:
+                self.logger.warning(f"Procesamiento directo falló: {str(e)}, intentando handlers...")
+        
+        # Si el procesamiento directo falla o no es una solicitud, usa los handlers registrados
         if receiver_id in self._message_handlers:
             for handler in self._message_handlers[receiver_id]:
                 try:
+                    self.logger.info(f"Invocando handler para {receiver_id}")
                     await handler(message)
+                    self.logger.info(f"Handler para {receiver_id} completado exitosamente")
+                    return
                 except Exception as e:
                     self.logger.error(f"Error in message handler for {receiver_id}: {e}")
+        else:
+            self.logger.warning(f"No hay handlers registrados para {receiver_id}, mensaje no será procesado")
     
     async def send_message(self, message: Message) -> None:
         """
@@ -332,6 +364,20 @@ class AgentCommunicator:
         """
         return [agent.get_info() for agent in self.agents.values()]
 
+    def find_agent(self, agent_id: str) -> Optional[Any]:
+        """
+        Encuentra un agente registrado por su ID.
+        
+        Args:
+            agent_id: ID del agente a buscar
+            
+        Returns:
+            Instancia del agente si se encuentra, None en caso contrario
+        """
+        if agent_id in self.agents:
+            return self.agents[agent_id]
+        return None
+
 
 # Create a global communicator instance
 communicator = AgentCommunicator()
@@ -358,7 +404,7 @@ async def send_agent_request(
     receiver_id: str, 
     content: str, 
     context: Optional[Dict] = None,
-    timeout: float = 10.0
+    timeout: float = 30.0
 ) -> Optional[AgentResponse]:
     """
     Send a request from one agent to another and get the response.
