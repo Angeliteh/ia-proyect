@@ -1,28 +1,198 @@
 #!/usr/bin/env python
 """
-Ejemplo simplificado de MCP que utiliza un cliente y servidor en memoria.
+Ejemplo de cliente MCP para conectarse a un servidor de eco
 
-Este script demuestra el uso básico del protocolo MCP con un cliente
-y servidor que se comunican directamente en memoria, sin necesidad
-de HTTP, sockets u otras comunicaciones de red.
+Este ejemplo muestra cómo crear un cliente MCP simple que se conecta
+a un servidor de eco (que simplemente devuelve los mensajes recibidos).
 """
 
 import os
 import sys
 import logging
-import time
 import asyncio
-from typing import Dict, Any, Optional
+import argparse
+import json
+import time  # Agregamos time para usar time.time()
 
-# Agregar el directorio padre al path para poder importar los módulos
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, parent_dir)
+# Agregar el directorio raíz del proyecto al path para poder importar los módulos
+# Ajustamos para manejar la nueva estructura de ejemplos
+current_dir = os.path.dirname(os.path.abspath(__file__))  # examples/mcp
+example_dir = os.path.dirname(current_dir)  # examples
+project_dir = os.path.dirname(example_dir)  # raíz del proyecto
+sys.path.insert(0, project_dir)
 
-# Importación directa de los módulos locales
-from mcp.core.protocol import MCPMessage, MCPResponse, MCPAction, MCPResource, MCPError, MCPErrorCode
-from mcp.core.server_base import MCPServerBase
-from mcp.core.client_base import MCPClientBase
-from mcp.core.init import initialize_mcp, shutdown_mcp, get_registry
+try:
+    # Intentar importar los módulos desde el paquete completo
+    from mcp.core.protocol import MCPMessage, MCPResponse, MCPAction, MCPResource
+    from mcp.core.init import initialize_mcp, shutdown_mcp, get_registry
+    from mcp.connectors.http_client import MCPHttpClient
+    from mcp.core.server_base import MCPServerBase
+    from mcp.core.client_base import MCPClientBase
+    
+    # Alias para compatibilidad
+    async def async_initialize_mcp():
+        """Inicializa el MCP de forma asíncrona."""
+        return initialize_mcp()
+    
+    print("Módulos MCP importados correctamente desde paquete instalado")
+except ImportError as e:
+    print(f"Error al importar módulos MCP desde paquete instalado: {e}")
+    print("Intentando importación alternativa...")
+    
+    try:
+        # Importación alternativa creando un sistema de módulos mock para el ejemplo
+        # Esto permite ejecutar el ejemplo sin necesidad de tener el paquete instalado
+        class MockMCP:
+            class Protocol:
+                class MCPMessage:
+                    def __init__(self, action=None, resource_type=None, resource_path=None, data=None):
+                        self.action = action
+                        self.resource_type = resource_type
+                        self.resource_path = resource_path
+                        self.data = data
+                
+                class MCPResponse:
+                    def __init__(self, success=True, data=None, error=None):
+                        self.success = success
+                        self.data = data or {}
+                        self.error = error
+                    
+                    @classmethod
+                    def success_response(cls, message_id=None, data=None):
+                        return cls(success=True, data=data)
+                    
+                    @classmethod
+                    def error_response(cls, message_id=None, code=None, message=None):
+                        return cls(success=False, error={"code": code, "message": message})
+                
+                class MCPAction:
+                    PING = "ping"
+                    ECHO = "echo"
+                    GET = "get"
+                    CAPABILITIES = "capabilities"
+                    SEARCH = "search"
+                
+                class MCPResource:
+                    SYSTEM = "system"
+            
+            class Server:
+                class MCPServerBase:
+                    """Clase base para servidores MCP."""
+                    def __init__(self, name="Base", description="Servidor base MCP", 
+                               supported_actions=None, supported_resources=None):
+                        self.name = name
+                        self.description = description
+                        self.supported_actions = supported_actions or []
+                        self.supported_resources = supported_resources or []
+                        self.logger = logging.getLogger(f"MCPServer.{name}")
+                    
+                    def handle_action(self, message):
+                        """Método que debe ser implementado por subclases."""
+                        return MockMCP.Protocol.MCPResponse(
+                            success=False, 
+                            error={"message": "Method not implemented"}
+                        )
+            
+            class Client:
+                class MCPClientBase:
+                    """Clase base para clientes MCP."""
+                    def __init__(self):
+                        self.logger = logging.getLogger("MCPClientBase")
+                    
+                    def connect(self):
+                        """Conecta con el servidor."""
+                        return True
+                    
+                    def disconnect(self):
+                        """Desconecta del servidor."""
+                        return True
+                    
+                    def send_message(self, message):
+                        """Envía un mensaje al servidor."""
+                        return MockMCP.Protocol.MCPResponse(
+                            success=False, 
+                            error={"message": "Method not implemented"}
+                        )
+                    
+                    def ping(self):
+                        """Verifica disponibilidad del servidor."""
+                        return MockMCP.Protocol.MCPResponse(success=True)
+                    
+                    def get_capabilities(self):
+                        """Obtiene capacidades del servidor."""
+                        return MockMCP.Protocol.MCPResponse(success=True)
+                
+                class MCPHttpClient:
+                    def __init__(self, base_url, headers=None):
+                        self.base_url = base_url
+                        self.headers = headers or {}
+                    
+                    def connect(self):
+                        # En un ejemplo real, esto conectaría con el servidor
+                        print(f"Conectando a {self.base_url}...")
+                        return True
+                    
+                    def disconnect(self):
+                        # En un ejemplo real, esto desconectaría del servidor
+                        print("Desconectando...")
+                    
+                    def ping(self):
+                        # Simulación de ping
+                        return MockMCP.Protocol.MCPResponse(success=True)
+                    
+                    def get_capabilities(self):
+                        # Simulación de capabilities
+                        return MockMCP.Protocol.MCPResponse(success=True, data={
+                            "actions": ["echo", "ping", "get"],
+                            "resources": ["system"]
+                        })
+                    
+                    def send_message(self, message):
+                        # Simulación de envío de mensaje
+                        if message.action == "echo":
+                            # El servidor de eco devuelve el mismo mensaje
+                            return MockMCP.Protocol.MCPResponse(success=True, data={
+                                "echo": message.data.get("message", ""),
+                                "timestamp": "2023-01-01T00:00:00Z"
+                            })
+                        return MockMCP.Protocol.MCPResponse(success=False, error={"message": "Acción no soportada"})
+        
+        # Usar la implementación mock para el ejemplo
+        MCPMessage = MockMCP.Protocol.MCPMessage
+        MCPResponse = MockMCP.Protocol.MCPResponse
+        MCPAction = MockMCP.Protocol.MCPAction
+        MCPResource = MockMCP.Protocol.MCPResource
+        MCPHttpClient = MockMCP.Client.MCPHttpClient
+        MCPServerBase = MockMCP.Server.MCPServerBase
+        MCPClientBase = MockMCP.Client.MCPClientBase
+        
+        # Funciones mock para initialize_mcp, shutdown_mcp y get_registry
+        def initialize_mcp():
+            print("Inicializando MCP mock...")
+            return get_registry()
+        
+        async def async_initialize_mcp():
+            print("Inicializando MCP mock (async)...")
+            return get_registry()
+        
+        async def shutdown_mcp():
+            print("Cerrando MCP mock...")
+            return True
+        
+        def get_registry():
+            class Registry:
+                def register_client(self, name, client):
+                    pass
+                
+                def register_server(self, name, server):
+                    pass
+            return Registry()
+            
+        print("Usando implementación mock para demostración")
+    except Exception as mock_error:
+        print(f"Error al crear mock: {mock_error}")
+        print("No se pueden importar los módulos necesarios. Asegúrate de que el proyecto esté configurado correctamente.")
+        sys.exit(1)
 
 # Configurar logging
 logging.basicConfig(
@@ -33,7 +203,7 @@ logging.basicConfig(
     ]
 )
 
-logger = logging.getLogger("mcp_echo_example")
+logger = logging.getLogger("mcp_echo_client_example")
 
 # Implementar un servidor MCP simple de eco
 class EchoServer(MCPServerBase):
@@ -211,17 +381,18 @@ class DirectClient(MCPClientBase):
         )
         return self.send_message(message)
 
-async def async_main():
+async def main():
     """
     Función principal asíncrona que ejecuta el ejemplo.
     """
     try:
         # Inicializar el subsistema MCP
-        registry = initialize_mcp()
+        await async_initialize_mcp()
+        registry = get_registry()
         
         # Crear y registrar un servidor de eco
         echo_server = EchoServer()
-        registry.register_server("echo", EchoServer)
+        registry.register_server("echo", echo_server)
         
         # Crear un cliente directo conectado al servidor
         client = DirectClient(echo_server)
@@ -276,4 +447,4 @@ async def async_main():
 
 if __name__ == "__main__":
     # Ejecutar ejemplo
-    asyncio.run(async_main()) 
+    asyncio.run(main()) 

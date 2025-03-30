@@ -14,21 +14,271 @@ import json
 from uuid import uuid4
 import sqlite3
 
-# Add the parent directory to the path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from memory.core.memory_system import MemorySystem
-from memory.core.memory_item import MemoryItem
-from memory.storage.in_memory_storage import InMemoryStorage
-from memory.types.episodic_memory import EpisodicMemory, Episode
-from memory.types.semantic_memory import SemanticMemory, Fact
-
-# Configure logging
+# Configurar logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Añadir la ruta del proyecto al PATH
+current_dir = os.path.dirname(os.path.abspath(__file__))  # examples/memory
+example_dir = os.path.dirname(current_dir)  # examples
+project_dir = os.path.dirname(example_dir)  # raíz del proyecto
+sys.path.insert(0, project_dir)
+
+# Intentar importar los módulos reales
+try:
+    # Importar directamente desde los módulos de memoria
+    from memory import MemorySystem, MemoryItem
+    from memory import InMemoryStorage
+    from memory import EpisodicMemory, Episode
+    from memory import SemanticMemory, Fact
+    
+    logger.info("Módulos de memoria importados correctamente")
+    USING_REAL_MODULES = True
+except ImportError as e:
+    logger.warning(f"No se pudieron importar los módulos de memoria: {e}")
+    logger.info("Usando implementaciones simuladas para demostración")
+    USING_REAL_MODULES = False
+    
+    # Implementaciones mínimas para demostración
+    class MemoryItem:
+        def __init__(self, id, content, memory_type="general", importance=0.5, metadata=None):
+            self.id = id
+            self.content = content
+            self.memory_type = memory_type
+            self.importance = importance
+            self.metadata = metadata or {}
+            self.created_at = datetime.now()
+            self.last_accessed = datetime.now()
+            self.access_count = 0
+    
+    class InMemoryStorage:
+        def __init__(self):
+            self.memories = {}
+            self.links = {}
+        
+        def clear(self):
+            self.memories = {}
+            self.links = {}
+    
+    class MemorySystem:
+        def __init__(self, storage=None):
+            self.storage = storage or InMemoryStorage()
+            logger.info("Memoria simulada inicializada")
+            
+        def add_memory(self, content, memory_type="general", importance=0.5, metadata=None):
+            memory_id = str(uuid4())
+            memory = MemoryItem(
+                id=memory_id,
+                content=content,
+                memory_type=memory_type,
+                importance=importance,
+                metadata=metadata
+            )
+            self.storage.memories[memory_id] = memory
+            return memory_id
+            
+        def get_memory(self, memory_id):
+            memory = self.storage.memories.get(memory_id)
+            if memory:
+                memory.access_count += 1
+                memory.last_accessed = datetime.now()
+            return memory
+            
+        def query_memories(self, memory_type=None, min_importance=None):
+            results = []
+            for memory in self.storage.memories.values():
+                if memory_type and memory.memory_type != memory_type:
+                    continue
+                if min_importance is not None and memory.importance < min_importance:
+                    continue
+                results.append(memory)
+            return results
+            
+        def get_all_memories(self):
+            return list(self.storage.memories.values())
+            
+        def link_memories(self, from_id, to_id, link_type="related"):
+            if from_id not in self.storage.links:
+                self.storage.links[from_id] = {}
+            self.storage.links[from_id][to_id] = link_type
+            
+        def get_related_memories(self, memory_id):
+            if memory_id not in self.storage.links:
+                return []
+            
+            related = []
+            for related_id, _ in self.storage.links[memory_id].items():
+                memory = self.get_memory(related_id)
+                if memory:
+                    related.append(memory)
+            return related
+    
+    class Episode:
+        def __init__(self, id, title, description="", importance=0.5, metadata=None):
+            self.id = id
+            self.title = title
+            self.description = description
+            self.importance = importance
+            self.metadata = metadata or {}
+            self.memory_ids = []
+            self.is_active = True
+            self.created_at = datetime.now()
+    
+    class EpisodicMemory:
+        def __init__(self, memory_system, db_path=None):
+            self.memory_system = memory_system
+            self.db_path = db_path
+            self.episodes = {}
+            self.storage = InMemoryStorage()
+            logger.info("Memoria episódica simulada inicializada")
+            
+        def create_episode(self, title, description="", importance=0.5, metadata=None):
+            episode_id = str(uuid4())
+            episode = Episode(
+                id=episode_id,
+                title=title,
+                description=description,
+                importance=importance,
+                metadata=metadata
+            )
+            self.episodes[episode_id] = episode
+            return episode_id
+            
+        def get_episode(self, episode_id):
+            return self.episodes.get(episode_id)
+            
+        def add_memory_to_episode(self, episode_id, memory_id):
+            episode = self.get_episode(episode_id)
+            if episode:
+                if memory_id not in episode.memory_ids:
+                    episode.memory_ids.append(memory_id)
+                return True
+            return False
+            
+        def get_memories_for_episode(self, episode_id):
+            episode = self.get_episode(episode_id)
+            if not episode:
+                return []
+                
+            memories = []
+            for memory_id in episode.memory_ids:
+                memory = self.memory_system.get_memory(memory_id)
+                if memory:
+                    memories.append(memory)
+            return memories
+            
+        def search_episodes(self, query):
+            results = []
+            query = query.lower()
+            for episode in self.episodes.values():
+                if (query in episode.title.lower() or 
+                    query in episode.description.lower()):
+                    results.append(episode)
+            return results
+            
+        def get_episode_summary(self, episode_id):
+            episode = self.get_episode(episode_id)
+            if not episode:
+                return {}
+                
+            memories = self.get_memories_for_episode(episode_id)
+            
+            return {
+                "id": episode.id,
+                "title": episode.title,
+                "description": episode.description,
+                "memory_count": len(memories),
+                "created_at": episode.created_at.isoformat(),
+                "is_active": episode.is_active
+            }
+    
+    class Fact:
+        def __init__(self, id, subject, predicate, object_, confidence=1.0, source=None):
+            self.id = id
+            self.subject = subject
+            self.predicate = predicate
+            self.object = object_
+            self.confidence = confidence
+            self.source = source
+            self.created_at = datetime.now()
+    
+    class SemanticMemory:
+        def __init__(self, memory_system, db_path=None):
+            self.memory_system = memory_system
+            self.db_path = db_path
+            self.facts = {}
+            self.storage = InMemoryStorage()
+            logger.info("Memoria semántica simulada inicializada")
+            
+        def add_fact(self, subject, predicate, object_, confidence=1.0, source=None):
+            fact_id = str(uuid4())
+            fact = Fact(
+                id=fact_id,
+                subject=subject,
+                predicate=predicate,
+                object_=object_,
+                confidence=confidence,
+                source=source
+            )
+            self.facts[fact_id] = fact
+            return fact_id
+            
+        def get_fact(self, fact_id):
+            return self.facts.get(fact_id)
+            
+        def get_facts_about(self, subject):
+            return [fact for fact in self.facts.values() if fact.subject == subject]
+            
+        def get_fact_value(self, subject, predicate):
+            for fact in self.facts.values():
+                if fact.subject == subject and fact.predicate == predicate:
+                    return fact.object
+            return None
+            
+        def query_facts(self, min_confidence=None):
+            if min_confidence is None:
+                return list(self.facts.values())
+            return [fact for fact in self.facts.values() if fact.confidence >= min_confidence]
+            
+        def check_conflicts(self, subject, predicate):
+            facts = [f for f in self.facts.values() 
+                    if f.subject == subject and f.predicate == predicate]
+            
+            conflicts = []
+            for i in range(len(facts)):
+                for j in range(i+1, len(facts)):
+                    if facts[i].object != facts[j].object:
+                        conflicts.append((facts[i], facts[j]))
+            return conflicts
+            
+        def get_fact_summary(self, subject):
+            facts = self.get_facts_about(subject)
+            if not facts:
+                return f"No information about {subject}"
+                
+            summary = f"Summary of {subject}:\n"
+            for fact in facts:
+                summary += f"- {fact.predicate}: {fact.object}"
+                if fact.confidence < 1.0:
+                    summary += f" (confidence: {fact.confidence:.2f})"
+                summary += "\n"
+            return summary
+            
+        def update_fact_confidence(self, fact_id, new_confidence):
+            fact = self.get_fact(fact_id)
+            if fact:
+                fact.confidence = new_confidence
+                return True
+            return False
+            
+        def get_all_subjects(self):
+            subjects = set()
+            for fact in self.facts.values():
+                subjects.add(fact.subject)
+            return list(subjects)
 
 
 def run_basic_demo():
@@ -459,8 +709,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Memory System Examples")
     parser.add_argument("--demo", choices=["basic", "episodic", "semantic"], default="basic",
                         help="Which demo to run (default: basic)")
+    parser.add_argument("--check-real-modules", action="store_true",
+                        help="Check if using real modules")
     
     args = parser.parse_args()
+    
+    # Check if we're using real modules
+    if args.check_real_modules:
+        print(f"USING_REAL_MODULES = {USING_REAL_MODULES}")
+        sys.exit(0)
     
     if args.demo == "basic":
         run_basic_demo()

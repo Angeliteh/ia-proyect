@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """
-Ejemplo de uso del servidor MCP para SQLite.
+Ejemplo de uso del servidor MCP para SQLite
 
-Este script demuestra cómo utilizar el servidor MCP para SQLite
-para realizar operaciones de base de datos a través del protocolo MCP.
+Este script muestra cómo implementar y usar un servidor MCP para
+interactuar con bases de datos SQLite a través del protocolo MCP.
 """
 
 import os
@@ -11,17 +11,150 @@ import sys
 import logging
 import asyncio
 import argparse
+import json
+import sqlite3
+import tempfile
 import time
 
-# Agregar el directorio padre al path para poder importar los módulos
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, parent_dir)
+# Agregar el directorio raíz del proyecto al path para poder importar los módulos
+# Ajustamos para manejar la nueva estructura de ejemplos
+current_dir = os.path.dirname(os.path.abspath(__file__))  # examples/mcp
+example_dir = os.path.dirname(current_dir)  # examples
+project_dir = os.path.dirname(example_dir)  # raíz del proyecto
+sys.path.insert(0, project_dir)
 
-# Importación directa de los módulos locales
-from mcp.core.protocol import MCPMessage, MCPResponse, MCPAction, MCPResource
-from mcp.core.init import initialize_mcp, async_initialize_mcp, shutdown_mcp, get_registry
-from mcp.connectors.http_client import MCPHttpClient
-from mcp_servers.sqlite import SQLiteMCPServer, run_http_server
+try:
+    # Intentar importar los módulos desde el paquete completo
+    from mcp.core.protocol import MCPMessage, MCPResponse, MCPAction, MCPResource
+    from mcp.core.init import initialize_mcp, shutdown_mcp, get_registry
+    from mcp.connectors.http_client import MCPHttpClient
+    from mcp_servers.sqlite.sqlite_server import SQLiteMCPServer, run_http_server
+    
+    # Alias para compatibilidad
+    async def async_initialize_mcp():
+        """Inicializa el MCP de forma asíncrona."""
+        return initialize_mcp()
+    
+    print("Módulos MCP importados correctamente desde paquete instalado")
+except ImportError as e:
+    print(f"Error al importar módulos MCP desde paquete instalado: {e}")
+    print("Intentando importación alternativa...")
+    
+    try:
+        # Importación alternativa creando un sistema de módulos mock para el ejemplo
+        # Esto permite ejecutar el ejemplo sin necesidad de tener el paquete instalado
+        class MockMCP:
+            class Protocol:
+                class MCPMessage:
+                    def __init__(self, action=None, resource_type=None, resource_path=None, data=None):
+                        self.action = action
+                        self.resource_type = resource_type
+                        self.resource_path = resource_path
+                        self.data = data
+                
+                class MCPResponse:
+                    def __init__(self, success=True, data=None, error=None):
+                        self.success = success
+                        self.data = data or {}
+                        self.error = error
+                
+                class MCPAction:
+                    GET = "get"
+                    LIST = "list"
+                    SEARCH = "search"
+                    CREATE = "create"
+                    UPDATE = "update"
+                    DELETE = "delete"
+                    QUERY = "query"
+                
+                class MCPResource:
+                    DATABASE = "database"
+                    TABLE = "table"
+                    SYSTEM = "system"
+            
+            class Client:
+                class MCPHttpClient:
+                    def __init__(self, base_url, headers=None):
+                        self.base_url = base_url
+                        self.headers = headers or {}
+                    
+                    def connect(self):
+                        # En un ejemplo real, esto conectaría con el servidor
+                        print(f"Conectando a {self.base_url}...")
+                        return True
+                    
+                    def disconnect(self):
+                        # En un ejemplo real, esto desconectaría del servidor
+                        print("Desconectando...")
+                    
+                    def ping(self):
+                        # Simulación de ping
+                        return MockMCP.Protocol.MCPResponse(success=True)
+                    
+                    def get_capabilities(self):
+                        # Simulación de capabilities
+                        return MockMCP.Protocol.MCPResponse(success=True, data={
+                            "actions": ["get", "list", "search", "create", "update", "delete", "query"],
+                            "resources": ["database", "table"]
+                        })
+                    
+                    def send_message(self, message):
+                        # Simulación de envío de mensaje
+                        return MockMCP.Protocol.MCPResponse(success=True, data={
+                            "result": "Simulación de operación SQLite"
+                        })
+        
+        # Usar la implementación mock para el ejemplo
+        MCPMessage = MockMCP.Protocol.MCPMessage
+        MCPResponse = MockMCP.Protocol.MCPResponse
+        MCPAction = MockMCP.Protocol.MCPAction
+        MCPResource = MockMCP.Protocol.MCPResource
+        MCPHttpClient = MockMCP.Client.MCPHttpClient
+        
+        # Funciones mock para initialize_mcp, shutdown_mcp y get_registry
+        async def initialize_mcp():
+            print("Inicializando MCP mock...")
+            return True
+        
+        async def shutdown_mcp():
+            print("Cerrando MCP mock...")
+            return True
+        
+        def get_registry():
+            class Registry:
+                def register_client(self, name, client):
+                    pass
+            return Registry()
+        
+        # Implementación simple de SQLiteMCPServer para el ejemplo
+        class SQLiteMCPServer:
+            def __init__(self, db_path):
+                self.db_path = db_path
+                self.connection = sqlite3.connect(db_path)
+                print(f"Servidor SQLite inicializado con base de datos: {db_path}")
+            
+            def handle_action(self, message):
+                # Simulación simplificada para el ejemplo
+                if message.action == MockMCP.Protocol.MCPAction.QUERY:
+                    return MockMCP.Protocol.MCPResponse(success=True, data={
+                        "columns": ["id", "name"],
+                        "rows": [
+                            [1, "Ejemplo 1"],
+                            [2, "Ejemplo 2"]
+                        ],
+                        "row_count": 2
+                    })
+                return MockMCP.Protocol.MCPResponse(success=True, data={"result": "ok"})
+        
+        def run_http_server(host, port, db_path):
+            print(f"Iniciando servidor mock en {host}:{port} (simulación)")
+            return None, SQLiteMCPServer(db_path)
+            
+        print("Usando implementación mock para demostración")
+    except Exception as mock_error:
+        print(f"Error al crear mock: {mock_error}")
+        print("No se pueden importar los módulos necesarios. Asegúrate de que el proyecto esté configurado correctamente.")
+        sys.exit(1)
 
 # Configurar logging
 logging.basicConfig(
@@ -318,7 +451,19 @@ async def main():
     parser = argparse.ArgumentParser(description="Ejemplo de servidor MCP para SQLite")
     parser.add_argument("--mode", choices=["direct", "http", "both"], default="both",
                       help="Modo de prueba: direct (servidor directo), http (servidor HTTP), both (ambos)")
+    parser.add_argument("--check-real-modules", action="store_true",
+                      help="Verificar si se están usando módulos reales")
     args = parser.parse_args()
+    
+    # Verificar si se están usando módulos reales
+    if args.check_real_modules:
+        try:
+            from mcp.core.protocol import MCPMessage
+            print("USING_REAL_MODULES = True")
+            return
+        except ImportError:
+            print("USING_REAL_MODULES = False")
+            return
     
     # Ejecutar pruebas según el modo seleccionado
     if args.mode in ["direct", "both"]:

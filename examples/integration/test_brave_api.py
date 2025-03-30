@@ -173,7 +173,16 @@ def main():
                       help="Consulta para búsqueda web")
     parser.add_argument("--query-local", default="restaurantes en Madrid",
                       help="Consulta para búsqueda local")
+    parser.add_argument("--check-real-modules", action="store_true",
+                      help="Verificar si se están usando módulos reales")
     args = parser.parse_args()
+    
+    # Verificar si se están usando módulos reales
+    if args.check_real_modules:
+        # Este módulo no importa ningún módulo del proyecto, 
+        # así que siempre está usando la implementación real
+        print("USING_REAL_MODULES = True")
+        return
     
     # Cargar variables de entorno para API keys
     load_dotenv()

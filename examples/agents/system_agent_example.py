@@ -14,20 +14,73 @@ from pathlib import Path
 
 # Add the parent directory to sys.path
 current_dir = Path(__file__).resolve().parent
-parent_dir = str(current_dir.parent)
+parent_dir = str(current_dir.parent.parent)  # Updated to point to project root
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
-from agents import SystemAgent
+# Setup logging first
+logging = __import__('logging')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler()]
+)
+logger = logging.getLogger("system_agent_example")
+
+# Try to import the actual modules
+try:
+    from agents import SystemAgent
+    USING_REAL_MODULES = True
+    logger.info("Using real SystemAgent module")
+except ImportError as e:
+    logger.warning(f"Error importing real SystemAgent: {e}")
+    logger.info("Using minimal implementation for demonstration")
+    USING_REAL_MODULES = False
+    
+    # Minimal implementation for demonstration
+    class SystemAgent:
+        def __init__(self, agent_id, config=None):
+            self.agent_id = agent_id
+            self.config = config or {}
+            self.working_dir = config.get('working_dir', os.getcwd())
+            logger.info(f"Simulated SystemAgent initialized with working dir: {self.working_dir}")
+        
+        async def process(self, query, context=None):
+            """Process a request with the simulated system agent."""
+            logger.info(f"Processing query: {query}")
+            
+            class Response:
+                def __init__(self, content, status="success"):
+                    self.content = content
+                    self.status = status
+            
+            # Simple simulation responses
+            action = context.get('action', '')
+            if action == 'system_info':
+                return Response(f"System Information:\nOS: {sys.platform}\nPython: {sys.version}")
+            elif action == 'list_files':
+                path = context.get('parameters', {}).get('path', '.')
+                try:
+                    files = os.listdir(path)
+                    return Response(f"Files in {path}:\n" + "\n".join(files))
+                except Exception as e:
+                    return Response(f"Error listing files: {e}", status="error")
+            elif action == 'read_file':
+                path = context.get('parameters', {}).get('path')
+                try:
+                    with open(path, 'r') as f:
+                        content = f.read(500)  # Read first 500 chars only for simulation
+                    return Response(f"Content of {path}:\n{content}...")
+                except Exception as e:
+                    return Response(f"Error reading file: {e}", status="error")
+            else:
+                return Response(f"Simulated action: {action}", status="success")
 
 
 def setup_logging():
     """Set up logging configuration."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[logging.StreamHandler()]
-    )
+    # Already setup at the top
+    pass
 
 
 async def run_system_agent(task_type, specific_task=None):
@@ -148,8 +201,18 @@ def main():
             "- For 'execute': command to execute"
         )
     )
+    parser.add_argument(
+        "--check-real-modules",
+        action="store_true",
+        help="Check if using real modules"
+    )
     
     args = parser.parse_args()
+    
+    # Check if we're using real modules
+    if args.check_real_modules:
+        print(f"USING_REAL_MODULES = {USING_REAL_MODULES}")
+        return
     
     setup_logging()
     asyncio.run(run_system_agent(args.task, args.param))

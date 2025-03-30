@@ -23,17 +23,29 @@ import time
 import asyncio
 from dotenv import load_dotenv
 
-# Agregar el directorio padre al path para poder importar los módulos
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, parent_dir)
+# Agregar el directorio raíz del proyecto al path para poder importar los módulos
+# Ajustamos para manejar la nueva estructura de ejemplos
+current_dir = os.path.dirname(os.path.abspath(__file__))  # examples/mcp
+example_dir = os.path.dirname(current_dir)  # examples
+project_dir = os.path.dirname(example_dir)  # raíz del proyecto
+sys.path.insert(0, project_dir)
 
-# Importación directa de los módulos locales
-from mcp.core.protocol import MCPMessage, MCPResponse, MCPAction, MCPResource
-from mcp.core.init import initialize_mcp, shutdown_mcp, get_registry
-from mcp.connectors.http_client import MCPHttpClient
-
-# Importar el servidor MCP para Brave Search
-from mcp_servers.brave_search_server import BraveSearchMCPServer, run_http_server
+# Importar los módulos desde el paquete completo
+try:
+    from mcp.core.protocol import MCPMessage, MCPResponse, MCPAction, MCPResource
+    from mcp.core.init import initialize_mcp, shutdown_mcp, get_registry
+    from mcp.connectors.http_client import MCPHttpClient
+    from mcp_servers.brave_search_server import BraveSearchMCPServer, run_http_server
+    
+    print("Módulos MCP importados correctamente desde paquete instalado")
+except ImportError as e:
+    print(f"Error al importar módulos MCP: {e}")
+    print("\nPara solucionar este problema:")
+    print("1. Asegúrate de que los módulos MCP estén instalados o en tu PYTHONPATH")
+    print("2. Verifica que la estructura del proyecto sea correcta")
+    print("3. Instala las dependencias necesarias con 'pip install -r requirements.txt'")
+    print("\nEl ejemplo requiere la implementación real de MCP. No se utilizan mocks.")
+    sys.exit(1)
 
 # Configurar logging
 logging.basicConfig(

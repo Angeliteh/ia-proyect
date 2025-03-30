@@ -17,9 +17,39 @@ from pathlib import Path
 
 # Add the parent directory to sys.path
 current_dir = Path(__file__).resolve().parent
-parent_dir = str(current_dir.parent)
+parent_dir = str(current_dir.parent.parent)  # Updated to point to project root
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
+
+# Setup logging first
+logging = __import__('logging')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler()]
+)
+logger = logging.getLogger("agent_communication_example")
+
+# Try to import the actual modules
+USING_REAL_MODULES = True
+
+try:
+    from agents import (
+        EchoAgent, 
+        CodeAgent, 
+        SystemAgent,
+        AgentCommunicator,
+        setup_communication_system,
+        shutdown_communication_system
+    )
+    logger.info("Using real agent modules")
+except ImportError as e:
+    logger.warning(f"Error importing real agent modules: {e}")
+    logger.info("Using minimal implementation for demonstration")
+    USING_REAL_MODULES = False
+    
+    # Minimal implementations for demonstration
+    # These will be filled out later if needed
 
 # Load environment variables from .env file
 try:
@@ -39,15 +69,6 @@ try:
         print(f"Warning: .env file not found at {env_path}")
 except ImportError:
     print("Warning: python-dotenv not installed. Environment variables may not be loaded.")
-
-from agents import (
-    EchoAgent, 
-    CodeAgent, 
-    SystemAgent,
-    AgentCommunicator,
-    setup_communication_system,
-    shutdown_communication_system
-)
 
 
 def setup_logging():
@@ -348,13 +369,23 @@ def main():
     """Main function to parse arguments and run the example."""
     parser = argparse.ArgumentParser(description="Agent Communication Example")
     parser.add_argument(
-        "--test",
+        "--test", 
         choices=["echo", "system", "code", "chain", "all"],
         default="all",
         help="Type of communication test to run"
     )
+    parser.add_argument(
+        "--check-real-modules",
+        action="store_true",
+        help="Check if using real modules"
+    )
     
     args = parser.parse_args()
+    
+    # Check if we're using real modules
+    if args.check_real_modules:
+        print(f"USING_REAL_MODULES = {USING_REAL_MODULES}")
+        return
     
     setup_logging()
     asyncio.run(run_communication_example(args.test))

@@ -1,25 +1,27 @@
-# Ejemplos y Pruebas
+# Ejemplos y Pruebas del Sistema de Agentes IA
 
-Este directorio contiene ejemplos y pruebas para los diferentes componentes del sistema IA Project, incluyendo MCP (Model Context Protocol), servidores MCP específicos, modelos de IA y otros componentes.
+Este directorio contiene ejemplos y pruebas para los diferentes componentes del Sistema de Agentes IA basado en Model Context Protocol (MCP), incluyendo implementaciones de MCP, agentes inteligentes, sistemas de memoria y modelos de IA.
 
-## Estructura de los ejemplos
+## Estructura del Directorio
 
-Los ejemplos están organizados por categorías:
+Los ejemplos están organizados en las siguientes carpetas:
 
-- **MCP Core**: Ejemplos que demuestran las funcionalidades básicas del protocolo MCP
-- **SQLite MCP**: Ejemplos del servidor MCP para bases de datos SQLite
-- **Brave Search**: Ejemplos de la integración con la API de Brave Search
-- **Modelos de IA**: Ejemplos del gestor de modelos y su uso
+- **[`mcp/`](./mcp/)**: Ejemplos del Model Context Protocol y sus implementaciones
+- **[`agents/`](./agents/)**: Ejemplos de agentes especializados (Echo, Code, System)
+- **[`models/`](./models/)**: Ejemplos de gestión de modelos de IA locales y en la nube
+- **[`memory/`](./memory/)**: Ejemplos del sistema de memoria para agentes
+- **[`integration/`](./integration/)**: Pruebas de integración y herramientas generales
 
-## Cómo ejecutar las pruebas
+## Ejecutando Pruebas
 
-Para facilitar la ejecución y organización de las pruebas, hemos incluido el script `run_tests.py`, que permite ejecutar ejemplos individualmente o por categorías.
+Para facilitar la ejecución de pruebas, hemos desarrollado un script ejecutor mejorado en `integration/run_tests.py`, que permite ejecutar ejemplos individualmente o por categorías.
 
-### Ver pruebas disponibles
+### Ver las pruebas disponibles
 
 Para ver todas las pruebas disponibles:
 
 ```bash
+cd examples/integration
 python run_tests.py --list
 ```
 
@@ -29,6 +31,7 @@ Para ejecutar una prueba específica, use el formato `categoria:prueba`:
 
 ```bash
 python run_tests.py --run mcp:core
+python run_tests.py --run agents:echo
 ```
 
 ### Ejecutar todas las pruebas de una categoría
@@ -36,67 +39,84 @@ python run_tests.py --run mcp:core
 Para ejecutar todas las pruebas de una categoría:
 
 ```bash
-python run_tests.py --run-category sqlite
+python run_tests.py --run-category mcp
+python run_tests.py --run-category agents
+```
+
+### Ejecutar todas las pruebas
+
+Para ejecutar todas las pruebas disponibles:
+
+```bash
+python run_tests.py --run-all
 ```
 
 ### Opciones adicionales
 
 - `--verbose` o `-v`: Muestra información detallada durante la ejecución de las pruebas
+- `--save-report`: Guarda un informe detallado de los resultados en formato JSON
+- `--report-file`: Especifica el nombre del archivo para el informe (por defecto: `test_report.json`)
 
-## Ejemplos disponibles
+## Ejemplos por Categoría
 
-### MCP Core
+### MCP (Model Context Protocol)
 
-- **mcp_core_example.py**: Demuestra las funcionalidades básicas del protocolo MCP
 - **mcp_echo_client_example.py**: Cliente MCP simple que envía mensajes a un servidor de eco
-- **mcp_http_client_example.py**: Cliente MCP que se comunica a través de HTTP
-
-### SQLite MCP
-
-- **sqlite_mcp_example.py**: Ejemplo completo del servidor SQLite MCP, con operaciones CRUD y consultas personalizadas
-  - Modo directo: `--mode direct` - Prueba la comunicación directa con el servidor
-  - Modo HTTP: `--mode http` - Prueba la comunicación a través de HTTP
-  - Modo completo: `--mode both` - Ejecuta ambas pruebas secuencialmente
-
-### Brave Search
-
-- **test_brave_api.py**: Prueba directa de la API de Brave Search
+- **sqlite_mcp_example.py**: Servidor MCP para bases de datos SQLite
 - **brave_search_client_example.py**: Cliente MCP para Brave Search
 - **brave_search_server_example.py**: Servidor MCP para Brave Search
-- **brave_api_mcp_test.py**: Prueba de integración entre MCP y la API de Brave
+
+### Agentes
+
+- **echo_agent_example.py**: Agente básico que simplemente repite mensajes (útil para pruebas)
+- **code_agent_example.py**: Agente especializado en tareas de programación
+- **system_agent_example.py**: Agente para interactuar con el sistema operativo
+- **agent_communication_example.py**: Demostración de comunicación entre agentes
 
 ### Modelos de IA
 
-- **model_manager_example.py**: Demuestra el uso del gestor de modelos de IA para cargar y utilizar modelos locales y en la nube
+- **model_manager_example.py**: Gestión de modelos de IA locales y en la nube
 
-## Configuración necesaria
+### Sistema de Memoria
+
+- **memory_example.py**: Demostración del sistema de memoria para agentes
+
+## Configuración Requerida
 
 Algunos ejemplos pueden requerir configuración adicional:
 
-1. **API Keys**: Algunos ejemplos, como los relacionados con Brave Search, requieren una API key. Configúrela en un archivo `.env` siguiendo el formato del archivo `.env.example`.
+1. **API Keys**: Los ejemplos relacionados con servicios en la nube (como Brave Search) requieren API keys. Configúrelas en un archivo `.env` siguiendo el formato del archivo `.env.example`.
 
-2. **Modelos locales**: Los ejemplos de modelos locales requieren que los archivos de modelo correspondientes (GGUF) estén disponibles en el directorio adecuado.
+2. **Modelos locales**: Los ejemplos de modelos locales requieren archivos GGUF. Asegúrese de descargarlos y configurar correctamente sus rutas.
 
-## Añadir nuevos ejemplos
+## Reportes de Pruebas
 
-Si desea agregar un nuevo ejemplo, siga estas pautas:
+El nuevo sistema de ejecución de pruebas genera reportes detallados que incluyen:
 
-1. Cree un nuevo archivo Python con un nombre descriptivo
-2. Documente claramente el propósito y uso del ejemplo
-3. Actualice el script `run_tests.py` para incluir su ejemplo en la categoría adecuada
+- Resumen de pruebas pasadas, fallidas y omitidas
+- Tiempos de ejecución para cada prueba
+- Mensajes de error detallados
+- Estadísticas de rendimiento global
 
-## Solución de problemas
+Para generar un reporte:
 
-### Errores comunes
+```bash
+python run_tests.py --run-all --save-report
+```
 
-- **ModuleNotFoundError**: Asegúrese de que está ejecutando el script desde el directorio raíz del proyecto para que las importaciones funcionen correctamente.
-- **API key not found**: Verifique que ha configurado correctamente las API keys en el archivo `.env`.
-- **Connection Error**: Si prueba servidores HTTP, asegúrese de que no hay otros procesos usando los mismos puertos.
+## Solución de Problemas
+
+### Errores Comunes
+
+- **ModuleNotFoundError**: Asegúrese de ejecutar los scripts desde el directorio raíz del proyecto
+- **API key not found**: Verifique la configuración en el archivo `.env`
+- **Model not found**: Verifique que los modelos GGUF estén correctamente instalados
+- **Connection Error**: Para servidores HTTP, verifique que los puertos no estén siendo utilizados
 
 ### Logs
 
-Los ejemplos incluyen logging detallado. Use la opción `--verbose` para ver más información durante la ejecución:
+Active el modo verbose para obtener más información durante la ejecución:
 
 ```bash
-python run_tests.py --run sqlite:http --verbose
+python run_tests.py --run-category mcp --verbose
 ``` 
