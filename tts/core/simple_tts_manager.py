@@ -19,6 +19,13 @@ try:
 except ImportError:
     PYGAME_AVAILABLE = False
 
+# Importar el gestor de archivos
+try:
+    from tts.core.file_manager import TTSFileManager
+    FILE_MANAGER_AVAILABLE = True
+except ImportError:
+    FILE_MANAGER_AVAILABLE = False
+
 class SimpleTTSManager:
     """
     Gestor simplificado de Text-to-Speech que utiliza gTTS (Google Text-to-Speech).
@@ -27,9 +34,21 @@ class SimpleTTSManager:
     gTTS para pruebas sin costo.
     """
     
-    def __init__(self):
+    def __init__(self, 
+                max_size_mb: float = 100.0, 
+                max_age_hours: float = 24.0,
+                cleanup_interval_minutes: float = 60.0,
+                enable_auto_cleanup: bool = True,
+                cache_enabled: bool = True):
         """
         Inicializa el gestor de TTS simple.
+        
+        Args:
+            max_size_mb: Tamaño máximo en MB para la carpeta temporal
+            max_age_hours: Edad máxima de archivos en horas
+            cleanup_interval_minutes: Intervalo entre limpiezas automáticas
+            enable_auto_cleanup: Si True, activa la limpieza automática periódica
+            cache_enabled: Si True, habilita el caché de archivos
         """
         # Verificar que gTTS está disponible
         if not GTTS_AVAILABLE:
@@ -41,9 +60,23 @@ class SimpleTTSManager:
         # Lista de voces disponibles (simulada para compatibilidad)
         self._available_voices = self._create_simulated_voices()
         
-        # Crear directorio temporal para archivos de audio si no existe
-        self.temp_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'temp')
-        os.makedirs(self.temp_dir, exist_ok=True)
+        # Crear o utilizar el gestor de archivos
+        if FILE_MANAGER_AVAILABLE:
+            self.file_manager = TTSFileManager(
+                max_size_mb=max_size_mb,
+                max_age_hours=max_age_hours,
+                cleanup_interval_minutes=cleanup_interval_minutes,
+                enable_auto_cleanup=enable_auto_cleanup,
+                cache_enabled=cache_enabled
+            )
+            self.logger.info("Usando TTSFileManager para gestión de archivos temporales")
+        else:
+            self.file_manager = None
+            self.logger.warning("TTSFileManager no disponible, funcionalidad limitada")
+            
+            # Crear directorio temporal para archivos de audio si no existe
+            self.temp_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'temp')
+            os.makedirs(self.temp_dir, exist_ok=True)
         
         self.logger.info("SimpleTTSManager inicializado correctamente")
     
@@ -189,17 +222,48 @@ class SimpleTTSManager:
         # Obtener el código de idioma para la voz seleccionada
         lang_code = self.get_lang_code_by_voice_id(voice_id)
         
+        # Verificar el caché si tenemos TTSFileManager
+        if self.file_manager:
+            # Generar hash para el contenido
+            content_hash = self.file_manager.get_hash_for_text(text, voice_id, **kwargs)
+            
+            # Intentar obtener del caché
+            cached_file = self.file_manager.get_from_cache(content_hash)
+            if cached_file:
+                self.logger.info(f"Usando archivo en caché: {cached_file}")
+                return cached_file
+        
         # Si no se especifica un archivo de salida, crear uno temporal
         if not output_file:
-            # Crear un nombre de archivo único
-            filename = f"tts_output_{uuid.uuid4().hex}.mp3"
-            output_file = os.path.join(self.temp_dir, filename)
+            if self.file_manager:
+                # Usar el generador de nombres del gestor de archivos
+                output_file = self.file_manager.generate_filename(
+                    prefix=f"tts_{lang_code}",
+                    extension="mp3"
+                )
+            else:
+                # Crear un nombre de archivo único
+                filename = f"tts_output_{uuid.uuid4().hex}.mp3"
+                output_file = os.path.join(self.temp_dir, filename)
         
         try:
             # Crear el objeto gTTS y guardar el audio
             self.logger.info(f"Generando audio para texto: '{text[:50]}...' (idioma: {lang_code})")
             tts = gTTS(text=text, lang=lang_code, slow=False)
             tts.save(output_file)
+            
+            # Registrar el archivo en el gestor si está disponible
+            if self.file_manager:
+                metadata = {
+                    "text": text[:100] + "..." if len(text) > 100 else text,
+                    "voice_id": voice_id,
+                    "lang_code": lang_code
+                }
+                self.file_manager.register_file(
+                    file_path=output_file,
+                    content_hash=content_hash if 'content_hash' in locals() else None,
+                    metadata=metadata
+                )
             
             self.logger.info(f"Audio generado correctamente: {output_file}")
             return output_file
@@ -217,6 +281,11 @@ class SimpleTTSManager:
         """
         if not os.path.exists(audio_file):
             raise FileNotFoundError(f"No se encontró el archivo de audio: {audio_file}")
+        
+        # Marcar el archivo como utilizado en el gestor si está disponible
+        if self.file_manager:
+            file_id = os.path.basename(audio_file)
+            self.file_manager.mark_file_used(file_id)
         
         try:
             if PYGAME_AVAILABLE:
@@ -239,4 +308,28 @@ class SimpleTTSManager:
                     self.logger.warning(f"Reproducción de audio no implementada para este sistema operativo: {os.name}")
         
         except Exception as e:
-            self.logger.error(f"Error al reproducir audio: {str(e)}") 
+            self.logger.error(f"Error al reproducir audio: {str(e)}")
+    
+    def cleanup(self, force: bool = False) -> Dict:
+        """
+        Realiza limpieza de archivos temporales.
+        
+        Args:
+            force: Si True, fuerza la limpieza inmediata
+            
+        Returns:
+            Diccionario con resultados de la limpieza o un mensaje si no está disponible
+        """
+        if self.file_manager:
+            return self.file_manager.cleanup(force=force)
+        else:
+            self.logger.warning("Función de limpieza no disponible sin TTSFileManager")
+            return {"error": "TTSFileManager no disponible"}
+    
+    def __del__(self):
+        """Asegurar que se detiene correctamente el gestor de archivos."""
+        if hasattr(self, 'file_manager') and self.file_manager:
+            try:
+                self.file_manager.stop()
+            except:
+                pass 

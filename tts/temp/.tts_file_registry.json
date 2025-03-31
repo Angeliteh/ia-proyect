@@ -1,0 +1,17 @@
+{
+  "last_updated": "2025-03-30T21:32:33.317263",
+  "files": {
+    "tts_es_-2011329046819368962.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-2011329046819368962.mp3",
+      "hash": "124c6153e227e571820ea78d7bb3681a",
+      "created_at": "2025-03-30T21:32:08.913525",
+      "last_used": "2025-03-30T21:32:20.674770",
+      "usage_count": 4,
+      "metadata": {
+        "text": "Soy Echo TTS. Echo: Esta es una prueba del sistema de cach\u00e9. Si funciona correctamente, la segunda v...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    }
+  }
+}
