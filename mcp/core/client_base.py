@@ -208,4 +208,118 @@ class MCPClientBase(abc.ABC):
             auth_token=self.auth_token
         )
         
-        return self.send_message(message) 
+        return self.send_message(message)
+    
+    # Métodos asincrónicos para clientes que implementen comunicación asíncrona
+    
+    async def ping_async(self) -> bool:
+        """
+        Versión asíncrona de ping.
+        
+        Si el cliente implementa send_message_async, este método facilitará
+        la comunicación en entornos asincrónicos.
+        
+        Returns:
+            True si el servidor responde correctamente
+        """
+        try:
+            if hasattr(self, 'send_message_async'):
+                message = MCPMessage.create_ping()
+                response = await self.send_message_async(message)
+                return response.success
+            else:
+                # Fallback al método sincrónico
+                return self.ping()
+        except Exception as e:
+            self.logger.error(f"Error en ping_async: {str(e)}")
+            return False
+            
+    async def get_capabilities_async(self) -> Dict[str, Any]:
+        """
+        Versión asíncrona de get_capabilities.
+        
+        Si el cliente implementa send_message_async, este método facilitará
+        la comunicación en entornos asincrónicos.
+        
+        Returns:
+            Diccionario con las capacidades del servidor
+        """
+        try:
+            if hasattr(self, 'send_message_async'):
+                message = MCPMessage.create_capabilities_request()
+                response = await self.send_message_async(message)
+                
+                if response.success:
+                    return response.data
+                else:
+                    self.logger.error(f"Error en get_capabilities_async: {response.error.message if hasattr(response, 'error') else 'Respuesta inválida'}")
+                    return {}
+            else:
+                # Fallback al método sincrónico
+                return self.get_capabilities()
+        except Exception as e:
+            self.logger.error(f"Error en get_capabilities_async: {str(e)}")
+            return {}
+            
+    async def get_resource_async(self, resource_type: Union[MCPResource, str], resource_path: str) -> MCPResponse:
+        """
+        Versión asíncrona de get_resource.
+        
+        Si el cliente implementa send_message_async, este método facilitará
+        la comunicación en entornos asincrónicos.
+        
+        Args:
+            resource_type: Tipo de recurso a obtener
+            resource_path: Ruta del recurso
+            
+        Returns:
+            Respuesta con el recurso solicitado
+        """
+        if hasattr(self, 'send_message_async'):
+            message = MCPMessage.create_get_request(resource_type, resource_path)
+            return await self.send_message_async(message)
+        else:
+            # Fallback al método sincrónico
+            return self.get_resource(resource_type, resource_path)
+            
+    async def list_resources_async(self, resource_type: Union[MCPResource, str], resource_path: str) -> MCPResponse:
+        """
+        Versión asíncrona de list_resources.
+        
+        Si el cliente implementa send_message_async, este método facilitará
+        la comunicación en entornos asincrónicos.
+        
+        Args:
+            resource_type: Tipo de recurso a listar
+            resource_path: Ruta base para listar recursos
+            
+        Returns:
+            Respuesta con la lista de recursos
+        """
+        if hasattr(self, 'send_message_async'):
+            message = MCPMessage.create_list_request(resource_type, resource_path)
+            return await self.send_message_async(message)
+        else:
+            # Fallback al método sincrónico
+            return self.list_resources(resource_type, resource_path)
+            
+    async def search_resources_async(self, resource_type: Union[MCPResource, str], query: str) -> MCPResponse:
+        """
+        Versión asíncrona de search_resources.
+        
+        Si el cliente implementa send_message_async, este método facilitará
+        la comunicación en entornos asincrónicos.
+        
+        Args:
+            resource_type: Tipo de recurso a buscar
+            query: Consulta de búsqueda
+            
+        Returns:
+            Respuesta con los resultados de la búsqueda
+        """
+        if hasattr(self, 'send_message_async'):
+            message = MCPMessage.create_search_request(resource_type, query)
+            return await self.send_message_async(message)
+        else:
+            # Fallback al método sincrónico
+            return self.search_resources(resource_type, query) 

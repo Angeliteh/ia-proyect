@@ -78,7 +78,7 @@ def run_demo():
         get_response = client.get_resource("test", "/test1")
         if get_response.success:
             print(f"Recurso obtenido: {get_response.data}")
-            else:
+        else:
             print(f"Error: {get_response.error.message}")
             
         # 4. Listamos recursos
@@ -86,7 +86,7 @@ def run_demo():
         list_response = client.list_resources("test", "/")
         if list_response.success:
             print(f"Recursos listados: {list_response.data}")
-            else:
+        else:
             print(f"Error: {list_response.error.message}")
             
         # 5. Buscamos recursos

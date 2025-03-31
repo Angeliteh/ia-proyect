@@ -25,7 +25,7 @@ except ImportError:
     pass
 
 try:
-    from .brave_search_server import BraveSearchServer
+    from .sqlite_server import SQLiteServer
 except ImportError:
     pass
 
@@ -39,5 +39,5 @@ if 'EchoServer' in globals():
 if 'FilesystemServer' in globals():
     __all__.append('FilesystemServer')
     
-if 'BraveSearchServer' in globals():
-    __all__.append('BraveSearchServer') 
+if 'SQLiteServer' in globals():
+    __all__.append('SQLiteServer') 

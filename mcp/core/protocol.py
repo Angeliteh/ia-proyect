@@ -23,6 +23,10 @@ class MCPAction(str, enum.Enum):
     UPDATE = "update"     # Actualizar un recurso existente
     DELETE = "delete"     # Eliminar un recurso
     
+    # Operaciones especializadas
+    QUERY = "query"       # Ejecutar una consulta personalizada (SQL, etc.)
+    SCHEMA = "schema"     # Obtener el esquema de un recurso
+    
     # Operaciones de control
     CONNECT = "connect"   # Establecer conexión con un servidor
     PING = "ping"         # Verificar disponibilidad del servidor
@@ -331,6 +335,27 @@ class MCPMessage:
             resource_type=resource_type,
             resource_path="/search",
             data=data
+        )
+
+    @classmethod
+    def create_list_request(cls, resource_type: Union[MCPResource, str], resource_path: str, 
+                          params: Optional[Dict[str, Any]] = None) -> 'MCPMessage':
+        """
+        Crea un mensaje para listar recursos.
+        
+        Args:
+            resource_type: Tipo de recurso a listar
+            resource_path: Ruta del directorio o contenedor a listar
+            params: Parámetros adicionales para la solicitud
+            
+        Returns:
+            Mensaje MCP para la operación LIST
+        """
+        return cls(
+            action=MCPAction.LIST,
+            resource_type=resource_type,
+            resource_path=resource_path,
+            data=params or {}
         )
 
 

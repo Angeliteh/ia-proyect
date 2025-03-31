@@ -1,484 +1,335 @@
-#!/usr/bin/env python
 """
-Ejemplo de uso del servidor MCP para SQLite
+Ejemplo del servidor MCP para SQLite.
 
-Este script muestra cómo implementar y usar un servidor MCP para
-interactuar con bases de datos SQLite a través del protocolo MCP.
+Este ejemplo demuestra:
+1. Cómo crear un servidor SQLite MCP
+2. Cómo conectar un cliente a dicho servidor
+3. Cómo realizar operaciones básicas con la base de datos a través del protocolo MCP
+4. Cómo gestionar tablas y registros
+
+Para ejecutar el ejemplo:
+    python examples/mcp/sqlite_mcp_example.py
 """
 
-import os
-import sys
-import logging
 import asyncio
-import argparse
+import logging
+import sys
+import os
 import json
-import sqlite3
-import tempfile
-import time
+import uuid
+from typing import Dict, Any, Optional
 
-# Agregar el directorio raíz del proyecto al path para poder importar los módulos
-# Ajustamos para manejar la nueva estructura de ejemplos
-current_dir = os.path.dirname(os.path.abspath(__file__))  # examples/mcp
-example_dir = os.path.dirname(current_dir)  # examples
-project_dir = os.path.dirname(example_dir)  # raíz del proyecto
-sys.path.insert(0, project_dir)
+# Aseguramos que el directorio raíz del proyecto esté en el path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_dir, '../..'))
+sys.path.insert(0, project_root)
 
-try:
-    # Intentar importar los módulos desde el paquete completo
-    from mcp.core.protocol import MCPMessage, MCPResponse, MCPAction, MCPResource
-    from mcp.core.init import initialize_mcp, shutdown_mcp, get_registry
-    from mcp.connectors.http_client import MCPHttpClient
-    from mcp_servers.sqlite.sqlite_server import SQLiteMCPServer, run_http_server
-    
-    # Alias para compatibilidad
-    async def async_initialize_mcp():
-        """Inicializa el MCP de forma asíncrona."""
-        return initialize_mcp()
-    
-    print("Módulos MCP importados correctamente desde paquete instalado")
-except ImportError as e:
-    print(f"Error al importar módulos MCP desde paquete instalado: {e}")
-    print("Intentando importación alternativa...")
-    
-    try:
-        # Importación alternativa creando un sistema de módulos mock para el ejemplo
-        # Esto permite ejecutar el ejemplo sin necesidad de tener el paquete instalado
-        class MockMCP:
-            class Protocol:
-                class MCPMessage:
-                    def __init__(self, action=None, resource_type=None, resource_path=None, data=None):
-                        self.action = action
-                        self.resource_type = resource_type
-                        self.resource_path = resource_path
-                        self.data = data
-                
-                class MCPResponse:
-                    def __init__(self, success=True, data=None, error=None):
-                        self.success = success
-                        self.data = data or {}
-                        self.error = error
-                
-                class MCPAction:
-                    GET = "get"
-                    LIST = "list"
-                    SEARCH = "search"
-                    CREATE = "create"
-                    UPDATE = "update"
-                    DELETE = "delete"
-                    QUERY = "query"
-                
-                class MCPResource:
-                    DATABASE = "database"
-                    TABLE = "table"
-                    SYSTEM = "system"
-            
-            class Client:
-                class MCPHttpClient:
-                    def __init__(self, base_url, headers=None):
-                        self.base_url = base_url
-                        self.headers = headers or {}
-                    
-                    def connect(self):
-                        # En un ejemplo real, esto conectaría con el servidor
-                        print(f"Conectando a {self.base_url}...")
-                        return True
-                    
-                    def disconnect(self):
-                        # En un ejemplo real, esto desconectaría del servidor
-                        print("Desconectando...")
-                    
-                    def ping(self):
-                        # Simulación de ping
-                        return MockMCP.Protocol.MCPResponse(success=True)
-                    
-                    def get_capabilities(self):
-                        # Simulación de capabilities
-                        return MockMCP.Protocol.MCPResponse(success=True, data={
-                            "actions": ["get", "list", "search", "create", "update", "delete", "query"],
-                            "resources": ["database", "table"]
-                        })
-                    
-                    def send_message(self, message):
-                        # Simulación de envío de mensaje
-                        return MockMCP.Protocol.MCPResponse(success=True, data={
-                            "result": "Simulación de operación SQLite"
-                        })
-        
-        # Usar la implementación mock para el ejemplo
-        MCPMessage = MockMCP.Protocol.MCPMessage
-        MCPResponse = MockMCP.Protocol.MCPResponse
-        MCPAction = MockMCP.Protocol.MCPAction
-        MCPResource = MockMCP.Protocol.MCPResource
-        MCPHttpClient = MockMCP.Client.MCPHttpClient
-        
-        # Funciones mock para initialize_mcp, shutdown_mcp y get_registry
-        async def initialize_mcp():
-            print("Inicializando MCP mock...")
-            return True
-        
-        async def shutdown_mcp():
-            print("Cerrando MCP mock...")
-            return True
-        
-        def get_registry():
-            class Registry:
-                def register_client(self, name, client):
-                    pass
-            return Registry()
-        
-        # Implementación simple de SQLiteMCPServer para el ejemplo
-        class SQLiteMCPServer:
-            def __init__(self, db_path):
-                self.db_path = db_path
-                self.connection = sqlite3.connect(db_path)
-                print(f"Servidor SQLite inicializado con base de datos: {db_path}")
-            
-            def handle_action(self, message):
-                # Simulación simplificada para el ejemplo
-                if message.action == MockMCP.Protocol.MCPAction.QUERY:
-                    return MockMCP.Protocol.MCPResponse(success=True, data={
-                        "columns": ["id", "name"],
-                        "rows": [
-                            [1, "Ejemplo 1"],
-                            [2, "Ejemplo 2"]
-                        ],
-                        "row_count": 2
-                    })
-                return MockMCP.Protocol.MCPResponse(success=True, data={"result": "ok"})
-        
-        def run_http_server(host, port, db_path):
-            print(f"Iniciando servidor mock en {host}:{port} (simulación)")
-            return None, SQLiteMCPServer(db_path)
-            
-        print("Usando implementación mock para demostración")
-    except Exception as mock_error:
-        print(f"Error al crear mock: {mock_error}")
-        print("No se pueden importar los módulos necesarios. Asegúrate de que el proyecto esté configurado correctamente.")
-        sys.exit(1)
-
-# Configurar logging
+# Configuración de logging
 logging.basicConfig(
     level=logging.INFO,
-    format='[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s',
-    handlers=[
-        logging.StreamHandler()
-    ]
+    format='%(asctime)s | %(levelname)-8s | %(name)-20s | %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
 )
 
 logger = logging.getLogger("sqlite_mcp_example")
 
-async def test_sqlite_server():
-    """
-    Prueba el servidor SQLite MCP directamente.
-    """
-    logger.info("Iniciando prueba directa del servidor SQLite MCP")
+# Importamos los componentes necesarios
+try:
+    from mcp.core import MCPMessage, MCPResponse, MCPAction, MCPResource, MCPRegistry
+    from mcp.servers import SQLiteServer
+    from mcp.clients import SimpleDirectClient
+except ImportError as e:
+    logger.error(f"Error importando módulos: {e}")
+    sys.exit(1)
+
+def print_section_header(title):
+    """Imprime un encabezado de sección con formato."""
+    separator = "=" * 80
+    logger.info("\n" + separator)
+    logger.info(f"  {title}")
+    logger.info(separator)
+
+async def run_example():
+    """Ejecuta el ejemplo del servidor SQLite MCP."""
+    # Crear un servidor SQLite en memoria para el ejemplo
+    server = SQLiteServer(
+        name="sqlite_example",
+        db_path=":memory:",
+        description="Servidor SQLite para ejemplo"
+    )
     
-    # Inicializar MCP
-    await async_initialize_mcp()
+    logger.info(f"Servidor SQLite creado: {server.name}")
+    
+    # Crear un cliente directo que se conecte al servidor
+    client = SimpleDirectClient(server)
     
     try:
-        # Crear servidor SQLite
-        db_path = os.path.join(os.path.dirname(__file__), "data")
-        os.makedirs(db_path, exist_ok=True)
+        # Conectar al servidor
+        client.connect()
+        logger.info("Cliente conectado al servidor SQLite")
         
-        logger.info(f"Usando directorio de bases de datos: {db_path}")
-        sqlite_server = SQLiteMCPServer(db_path=db_path)
+        # 1. Verificar conexión con PING
+        print_section_header("PING")
+        ping_result = await client.ping_async()
+        logger.info(f"Ping resultado: {ping_result}")
         
-        # Crear base de datos de prueba
-        test_db = "test_example.db"
-        db_create_message = MCPMessage(
-            action=MCPAction.CREATE,
-            resource_type="database",
-            resource_path=f"/{test_db}",
-            data={"db_name": test_db}
-        )
+        # 2. Obtener capacidades
+        print_section_header("CAPACIDADES")
+        capabilities = await client.get_capabilities_async()
         
-        logger.info(f"Creando base de datos {test_db}...")
-        db_response = await sqlite_server.process_message(db_create_message)
+        if not capabilities:
+            logger.warning("No se pudieron obtener las capacidades del servidor.")
+            logger.warning("Obteniendo capacidades directamente del servidor...")
+            capabilities = server.capabilities
+            
+        logger.info(f"Nombre del servidor: {capabilities.get('name', 'Desconocido')}")
+        logger.info(f"Descripción: {capabilities.get('description', 'Sin descripción')}")
+        logger.info("Acciones soportadas:")
+        for action in capabilities.get('supported_actions', []):
+            logger.info(f"  • {action}")
+        logger.info("Recursos soportados:")
+        for resource in capabilities.get('supported_resources', []):
+            logger.info(f"  • {resource}")
         
-        if db_response.success:
-            logger.info(f"Base de datos creada: {db_response.data.get('database')}")
-        else:
-            if "ya existe" in db_response.error.message:
-                logger.info(f"Base de datos {test_db} ya existe, continuando...")
-            else:
-                logger.error(f"Error creando base de datos: {db_response.error.message}")
-                return
-        
-        # Crear tabla de prueba
-        table_name = "users"
-        table_create_message = MCPMessage(
+        # 3. Crear una tabla de usuarios
+        print_section_header("CREAR TABLA")
+        create_table_message = MCPMessage(
             action=MCPAction.CREATE,
             resource_type="table",
-            resource_path=f"/{test_db}/{table_name}",
+            resource_path="/users",
             data={
-                "columns": [
-                    {"name": "id", "type": "INTEGER", "primary_key": True},
-                    {"name": "name", "type": "TEXT", "not_null": True},
-                    {"name": "email", "type": "TEXT"},
-                    {"name": "age", "type": "INTEGER"}
-                ]
+                "schema": {
+                    "id": "INTEGER PRIMARY KEY AUTOINCREMENT",
+                    "name": "TEXT NOT NULL",
+                    "email": "TEXT",
+                    "age": "INTEGER",
+                    "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+                }
             }
         )
         
-        logger.info(f"Creando tabla {table_name}...")
-        table_response = await sqlite_server.process_message(table_create_message)
-        
-        if table_response.success:
-            logger.info(f"Tabla creada: {table_response.data.get('table')}")
+        create_response = await client.send_message_async(create_table_message)
+        if create_response.success:
+            logger.info(f"✓ Tabla creada: {create_response.data.get('message')}")
         else:
-            if "ya existe" in table_response.error.message:
-                logger.info(f"Tabla {table_name} ya existe, continuando...")
-            else:
-                logger.error(f"Error creando tabla: {table_response.error.message}")
+            logger.error(f"✗ Error: {create_response.error.message if hasattr(create_response, 'error') else 'Error desconocido'}")
+            return
         
-        # Insertar datos de prueba
-        insert_query = f"""
-        INSERT INTO {table_name} (id, name, email, age) VALUES 
-        (1, 'Usuario 1', 'user1@example.com', 25),
-        (2, 'Usuario 2', 'user2@example.com', 30),
-        (3, 'Usuario 3', 'user3@example.com', 35)
-        """
-        
-        insert_message = MCPMessage(
-            action=MCPAction.CREATE,
-            resource_type="query",
-            resource_path="/query",
-            data={
-                "db_name": test_db,
-                "query": insert_query
-            }
-        )
-        
-        logger.info("Insertando datos de prueba...")
-        insert_response = await sqlite_server.process_message(insert_message)
-        
-        if insert_response.success:
-            logger.info(f"Datos insertados: {insert_response.data.get('affected_rows')} filas afectadas")
+        # 4. Verificar que la tabla existe listando todas las tablas
+        print_section_header("LISTAR TABLAS")
+        list_response = await client.list_resources_async(MCPResource.DATABASE, "/")
+        if list_response.success:
+            tables = list_response.data.get('tables', [])
+            logger.info(f"Tablas en la base de datos: {', '.join(tables)}")
         else:
-            logger.error(f"Error insertando datos: {insert_response.error.message}")
+            logger.error(f"✗ Error: {list_response.error.message}")
+            return
         
-        # Consultar datos
-        select_message = MCPMessage(
-            action=MCPAction.SEARCH,
-            resource_type="query",
-            resource_path="/query",
-            data={
-                "db_name": test_db,
-                "query": f"SELECT * FROM {table_name}"
-            }
-        )
+        # 5. Insertar registros en la tabla
+        print_section_header("INSERTAR REGISTROS")
         
-        logger.info("Consultando datos...")
-        select_response = await sqlite_server.process_message(select_message)
+        # Usuarios de ejemplo
+        users = [
+            {"name": "Juan Pérez", "email": "juan@example.com", "age": 30},
+            {"name": "María García", "email": "maria@example.com", "age": 25},
+            {"name": "Carlos López", "email": "carlos@example.com", "age": 42}
+        ]
         
-        if select_response.success:
-            results = select_response.data.get("results", [])
-            logger.info(f"Se obtuvieron {len(results)} resultados")
+        for user in users:
+            insert_message = MCPMessage(
+                action=MCPAction.CREATE,
+                resource_type="record",
+                resource_path="/users",
+                data={"data": user}
+            )
             
-            print("\n--- Resultados de la consulta ---")
-            for row in results:
-                print(f"ID: {row['id']}, Nombre: {row['name']}, Email: {row['email']}, Edad: {row['age']}")
-        else:
-            logger.error(f"Error consultando datos: {select_response.error.message}")
+            insert_response = await client.send_message_async(insert_message)
+            if insert_response.success:
+                logger.info(f"✓ Usuario creado: {user['name']} (ID: {insert_response.data.get('id')})")
+            else:
+                logger.error(f"✗ Error: {insert_response.error.message}")
         
-        # Obtener información de la tabla
-        table_info_message = MCPMessage(
+        # 6. Listar todos los registros de la tabla
+        print_section_header("LISTAR REGISTROS")
+        list_records_message = MCPMessage(
+            action=MCPAction.LIST,
+            resource_type="table",
+            resource_path="/users",
+            data={"limit": 10, "offset": 0}
+        )
+        
+        list_records_response = await client.send_message_async(list_records_message)
+        if list_records_response.success:
+            users = list_records_response.data.get('items', [])
+            total = list_records_response.data.get('total', 0)
+            logger.info(f"Total de usuarios: {total}")
+            
+            for user in users:
+                logger.info(f"  • ID: {user['id']}, Nombre: {user['name']}, Email: {user['email']}, Edad: {user['age']}")
+        else:
+            logger.error(f"✗ Error: {list_records_response.error.message}")
+        
+        # 7. Buscar registros por un criterio
+        print_section_header("BUSCAR REGISTROS")
+        search_response = await client.search_resources_async("table", "García")
+        if search_response.success:
+            results = search_response.data.get('results', [])
+            count = search_response.data.get('count', 0)
+            logger.info(f"Resultados encontrados: {count}")
+            
+            for user in results:
+                logger.info(f"  • ID: {user['id']}, Nombre: {user['name']}, Email: {user['email']}")
+        else:
+            logger.error(f"✗ Error: {search_response.error.message}")
+        
+        # 8. Obtener un registro específico por ID
+        print_section_header("OBTENER REGISTRO POR ID")
+        get_message = MCPMessage(
             action=MCPAction.GET,
             resource_type="table",
-            resource_path=f"/{test_db}/{table_name}"
+            resource_path="/users",
+            data={"id": 2}
         )
         
-        logger.info(f"Obteniendo información de la tabla {table_name}...")
-        table_info_response = await sqlite_server.process_message(table_info_message)
-        
-        if table_info_response.success:
-            table_info = table_info_response.data
-            print("\n--- Información de la tabla ---")
-            print(f"Nombre: {table_info.get('name')}")
-            print(f"Registros: {table_info.get('row_count')}")
-            print("Columnas:")
-            for column in table_info.get("columns", []):
-                print(f"  - {column.get('name')} ({column.get('type')})")
+        get_response = await client.send_message_async(get_message)
+        if get_response.success:
+            user = get_response.data
+            logger.info(f"Usuario encontrado: ID={user['id']}, Nombre={user['name']}, Email={user['email']}, Edad={user['age']}")
         else:
-            logger.error(f"Error obteniendo información de la tabla: {table_info_response.error.message}")
+            logger.error(f"✗ Error: {get_response.error.message}")
         
-        # Listar bases de datos
-        list_db_message = MCPMessage(
-            action=MCPAction.LIST,
-            resource_type="database",
-            resource_path="/"
-        )
-        
-        logger.info("Listando bases de datos...")
-        list_db_response = await sqlite_server.process_message(list_db_message)
-        
-        if list_db_response.success:
-            databases = list_db_response.data.get("databases", [])
-            print("\n--- Bases de datos disponibles ---")
-            for db in databases:
-                print(f"Nombre: {db.get('name')}, Tamaño: {db.get('size_mb')} MB")
-        else:
-            logger.error(f"Error listando bases de datos: {list_db_response.error.message}")
-        
-    except Exception as e:
-        logger.error(f"Error en la prueba: {e}")
-    
-    finally:
-        # Limpiar
-        try:
-            await shutdown_mcp()
-        except:
-            pass  # Ignora errores durante el cierre
-        logger.info("Prueba finalizada")
-
-async def test_sqlite_http():
-    """
-    Prueba el servidor SQLite MCP a través de HTTP.
-    """
-    logger.info("Iniciando prueba del servidor SQLite MCP a través de HTTP")
-    
-    # Inicializar MCP
-    await async_initialize_mcp()
-    
-    # Iniciar servidor HTTP
-    db_path = os.path.join(os.path.dirname(__file__), "data")
-    os.makedirs(db_path, exist_ok=True)
-    
-    logger.info(f"Usando directorio de bases de datos: {db_path}")
-    http_server, _ = run_http_server(host="localhost", port=8081, db_path=db_path)
-    
-    try:
-        # Esperar a que el servidor esté listo
-        time.sleep(1)
-        
-        # Crear cliente HTTP
-        client = MCPHttpClient(base_url="http://localhost:8081")
-        success = client.connect()
-        
-        if not success:
-            logger.error("No se pudo conectar al servidor HTTP")
-            return
-        
-        # Verificar disponibilidad con ping
-        logger.info("Enviando ping al servidor...")
-        ping_response = client.ping()  # Esto devuelve un MCPResponse, no necesita await
-        
-        if ping_response.success:
-            logger.info("Ping exitoso")
-        else:
-            logger.error(f"Error en ping: {ping_response.error.message}")
-            return
-        
-        # Obtener capacidades
-        logger.info("Obteniendo capacidades del servidor...")
-        cap_response = client.get_capabilities()
-        
-        if cap_response.success:
-            actions = cap_response.data.get("actions", [])
-            resources = cap_response.data.get("resources", [])
-            logger.info(f"Capacidades obtenidas: {len(actions)} acciones, {len(resources)} recursos")
-        else:
-            logger.error(f"Error obteniendo capacidades: {cap_response.error.message}")
-        
-        # Listar bases de datos
-        logger.info("Listando bases de datos...")
-        list_message = MCPMessage(
-            action=MCPAction.LIST,
-            resource_type="database",
-            resource_path="/"
-        )
-        
-        list_response = client.send_message(list_message)
-        
-        if list_response.success:
-            databases = list_response.data.get("databases", [])
-            print("\n--- Bases de datos disponibles ---")
-            for db in databases:
-                print(f"Nombre: {db.get('name')}, Tamaño: {db.get('size_mb')} MB")
-        else:
-            logger.error(f"Error listando bases de datos: {list_response.error.message}")
-        
-        # Consultar datos de ejemplo
-        db_name = "test_example.db"
-        logger.info(f"Consultando datos de la base de datos {db_name}...")
-        
-        search_message = MCPMessage(
-            action=MCPAction.SEARCH,
-            resource_type="query",
-            resource_path="/query",
+        # 9. Actualizar un registro
+        print_section_header("ACTUALIZAR REGISTRO")
+        update_message = MCPMessage(
+            action=MCPAction.UPDATE,
+            resource_type="record",
+            resource_path="/users",
             data={
-                "db_name": db_name,
-                "query": "SELECT * FROM users WHERE age > ?",
-                "params": [25]
+                "id": 1,
+                "data": {
+                    "name": "Juan Pérez Actualizado",
+                    "age": 31
+                }
             }
         )
         
-        search_response = client.send_message(search_message)
-        
-        if search_response.success:
-            results = search_response.data.get("results", [])
-            logger.info(f"Se obtuvieron {len(results)} resultados")
-            
-            print("\n--- Resultados de la consulta (age > 25) ---")
-            for row in results:
-                print(f"ID: {row['id']}, Nombre: {row['name']}, Email: {row['email']}, Edad: {row['age']}")
+        update_response = await client.send_message_async(update_message)
+        if update_response.success:
+            logger.info(f"✓ Registro actualizado: {update_response.data.get('message')}")
         else:
-            logger.error(f"Error consultando datos: {search_response.error.message}")
+            logger.error(f"✗ Error: {update_response.error.message}")
+        
+        # 10. Verificar la actualización
+        print_section_header("VERIFICAR ACTUALIZACIÓN")
+        get_updated_message = MCPMessage(
+            action=MCPAction.GET,
+            resource_type="table",
+            resource_path="/users",
+            data={"id": 1}
+        )
+        
+        get_updated_response = await client.send_message_async(get_updated_message)
+        if get_updated_response.success:
+            user = get_updated_response.data
+            logger.info(f"Usuario actualizado: ID={user['id']}, Nombre={user['name']}, Email={user['email']}, Edad={user['age']}")
+        else:
+            logger.error(f"✗ Error: {get_updated_response.error.message}")
+        
+        # 11. Ejecutar una consulta SQL personalizada
+        print_section_header("CONSULTA SQL")
+        query_message = MCPMessage(
+            action=MCPAction.QUERY,
+            resource_type=MCPResource.DATABASE,
+            resource_path="/",
+            data={
+                "query": "SELECT id, name, age FROM users WHERE age > ?",
+                "params": [25],
+                "type": "select"
+            }
+        )
+        
+        query_response = await client.send_message_async(query_message)
+        if query_response.success:
+            rows = query_response.data.get('rows', [])
+            count = query_response.data.get('count', 0)
+            logger.info(f"Resultados de la consulta: {count}")
+            
+            for row in rows:
+                logger.info(f"  • ID: {row['id']}, Nombre: {row['name']}, Edad: {row['age']}")
+        else:
+            logger.error(f"✗ Error: {query_response.error.message}")
+        
+        # 12. Obtener el esquema de la tabla
+        print_section_header("ESQUEMA DE TABLA")
+        schema_message = MCPMessage(
+            action=MCPAction.SCHEMA,
+            resource_type="table",
+            resource_path="/users"
+        )
+        
+        schema_response = await client.send_message_async(schema_message)
+        if schema_response.success:
+            schema = schema_response.data
+            logger.info(f"Esquema de la tabla: {schema['name']}")
+            logger.info("Columnas:")
+            
+            for column in schema['columns']:
+                pk = "PK" if column['pk'] else ""
+                null = "NOT NULL" if column['notnull'] else "NULL"
+                default = f"DEFAULT {column['default_value']}" if column['default_value'] else ""
+                logger.info(f"  • {column['name']} ({column['type']}) {pk} {null} {default}")
+        else:
+            logger.error(f"✗ Error: {schema_response.error.message}")
+        
+        # 13. Eliminar un registro
+        print_section_header("ELIMINAR REGISTRO")
+        delete_message = MCPMessage(
+            action=MCPAction.DELETE,
+            resource_type="record",
+            resource_path="/users",
+            data={"id": 3}
+        )
+        
+        delete_response = await client.send_message_async(delete_message)
+        if delete_response.success:
+            logger.info(f"✓ Registro eliminado: {delete_response.data.get('message')}")
+        else:
+            logger.error(f"✗ Error: {delete_response.error.message}")
+        
+        # 14. Verificar la eliminación listando todos los registros
+        print_section_header("VERIFICAR ELIMINACIÓN")
+        verify_response = await client.list_resources_async("table", "/users")
+        if verify_response.success:
+            users = verify_response.data.get('items', [])
+            total = verify_response.data.get('total', 0)
+            logger.info(f"Total de usuarios después de eliminar: {total}")
+            
+            for user in users:
+                logger.info(f"  • ID: {user['id']}, Nombre: {user['name']}")
+        else:
+            logger.error(f"✗ Error: {verify_response.error.message}")
         
     except Exception as e:
-        logger.error(f"Error en la prueba HTTP: {e}")
+        logger.error(f"Error en el ejemplo: {str(e)}")
+        import traceback
+        traceback.print_exc()
     
     finally:
-        # Limpiar
-        if 'client' in locals():
-            client.disconnect()
+        # Cerrar la conexión del cliente
+        client.disconnect()
+        logger.info("Cliente desconectado del servidor")
         
-        # Detener el servidor HTTP
-        http_server.shutdown()
-        http_server.server_close()
-        
-        # Cerrar MCP
-        try:
-            await shutdown_mcp()
-        except:
-            pass  # Ignora errores durante el cierre
-        logger.info("Prueba HTTP finalizada")
-
-async def main():
-    """Función principal del ejemplo."""
-    # Configurar argumentos
-    parser = argparse.ArgumentParser(description="Ejemplo de servidor MCP para SQLite")
-    parser.add_argument("--mode", choices=["direct", "http", "both"], default="both",
-                      help="Modo de prueba: direct (servidor directo), http (servidor HTTP), both (ambos)")
-    parser.add_argument("--check-real-modules", action="store_true",
-                      help="Verificar si se están usando módulos reales")
-    args = parser.parse_args()
-    
-    # Verificar si se están usando módulos reales
-    if args.check_real_modules:
-        try:
-            from mcp.core.protocol import MCPMessage
-            print("USING_REAL_MODULES = True")
-            return
-        except ImportError:
-            print("USING_REAL_MODULES = False")
-            return
-    
-    # Ejecutar pruebas según el modo seleccionado
-    if args.mode in ["direct", "both"]:
-        await test_sqlite_server()
-    
-    if args.mode in ["http", "both"]:
-        # Esperar un poco si se ejecutaron ambas pruebas
-        if args.mode == "both":
-            time.sleep(1)
-        await test_sqlite_http()
+        # Cerrar la conexión de la base de datos
+        await server.close()
+        logger.info("Conexión a la base de datos cerrada")
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        # Ejecutar el ejemplo con asyncio
+        asyncio.run(run_example())
     except KeyboardInterrupt:
-        print("\nOperación cancelada por el usuario")
+        logger.info("Ejemplo interrumpido por el usuario")
     except Exception as e:
-        print(f"Error en la aplicación: {e}") 
+        logger.error(f"Error ejecutando el ejemplo: {str(e)}")
+        import traceback
+        traceback.print_exc() 
