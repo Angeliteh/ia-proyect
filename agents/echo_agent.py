@@ -7,6 +7,7 @@ Useful for testing the agent infrastructure.
 
 import asyncio
 from typing import Dict, List, Optional
+from datetime import datetime
 
 from .base import BaseAgent, AgentResponse
 from .agent_communication import Message, MessageType
@@ -36,6 +37,25 @@ class EchoAgent(BaseAgent):
         # Simular un pequeño retraso para realismo
         await asyncio.sleep(0.1)
         
+        # Check memory first to see if we've seen similar queries
+        relevant_memories = []
+        memory_context = {}
+        
+        if self.has_memory():
+            # Try to recall any similar queries from memory
+            relevant_memories = self.recall(query=query, limit=3)
+            
+            if relevant_memories:
+                memory_content = "\n".join([f"- {m.content}" for m in relevant_memories])
+                self.logger.info(f"Found {len(relevant_memories)} relevant memories")
+                
+                # Add memory information to context
+                memory_context = {
+                    "memory_used": True,
+                    "memories_found": len(relevant_memories),
+                    "memory_content": memory_content
+                }
+        
         # Detectar si es una solicitud de planificación
         if "task planning request" in query.lower() and "format your response" in query.lower():
             response_content = self._handle_planning_request(query, context or {})
@@ -45,17 +65,38 @@ class EchoAgent(BaseAgent):
                     "agent_id": self.agent_id,
                     "query_length": len(query),
                     "context": context or {},
-                    "is_planning_response": True
+                    "is_planning_response": True,
+                    **memory_context
                 }
             )
         else:
-            # Respuesta de eco normal
+            # Check if this is a repeated query based on memory
+            if relevant_memories and any(m.content == query for m in relevant_memories):
+                response_content = f"Echo (remembered): {query}\n(I've seen this before!)"
+            else:
+                # Normal echo response
+                response_content = f"Echo: {query}"
+            
             response = AgentResponse(
-                content=f"Echo: {query}",
+                content=response_content,
                 metadata={
                     "agent_id": self.agent_id,
                     "query_length": len(query),
-                    "context": context or {}
+                    "context": context or {},
+                    **memory_context
+                }
+            )
+        
+        # Remember this interaction
+        if self.has_memory():
+            self.remember(
+                content=query,
+                importance=0.3,  # Echo queries are usually less important
+                memory_type="echo_query",
+                metadata={
+                    "response": response_content,
+                    "timestamp": datetime.now().isoformat(),
+                    **(context or {})
                 }
             )
         

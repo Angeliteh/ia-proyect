@@ -97,52 +97,177 @@ class SystemAgent(BaseAgent):
         self.logger.info(f"Processing system task: {action}")
         
         try:
-            # Execute the requested action
-            if action == "execute_command":
-                result = await self._execute_command(parameters.get("command", query))
-            elif action == "read_file":
-                result = await self._read_file(parameters.get("path", ""))
-            elif action == "write_file":
-                result = await self._write_file(
-                    parameters.get("path", ""), 
-                    parameters.get("content", "")
-                )
-            elif action == "list_files":
-                result = await self._list_files(parameters.get("path", "."))
-            elif action == "system_info":
-                result = await self._get_system_info()
-            elif action == "process_info":
-                result = await self._get_process_info(parameters.get("pid"))
-            elif action == "launch_app":
-                result = await self._launch_application(
-                    parameters.get("app_name", ""),
-                    parameters.get("args", [])
-                )
-            else:
-                result = f"Unknown action: {action}. Please use one of the supported actions."
-                self.set_state("error")
-                return AgentResponse(
-                    content=result,
-                    status="error",
-                    metadata={"error": f"Unknown action: {action}"}
-                )
-            
-            self.set_state("idle")
-            return AgentResponse(
-                content=result,
-                metadata={
-                    "action": action,
-                    "os_type": self.os_type
-                }
-            )
+            return await self._process_with_memory(action, query, parameters, context)
         except Exception as e:
             self.logger.error(f"Error processing system task: {str(e)}")
             self.set_state("error")
             return AgentResponse(
                 content=f"Error processing your system request: {str(e)}",
                 status="error",
-                metadata={"error": str(e)}
+                metadata={
+                    "error": str(e),
+                    "action": action,
+                    "os_type": self.os_type
+                }
             )
+    
+    async def _process_with_memory(self, action: str, query: str, parameters: Dict, context: Dict) -> AgentResponse:
+        """
+        Procesa una tarea del sistema utilizando memoria.
+        
+        Args:
+            action: Acción a realizar
+            query: Consulta original
+            parameters: Parámetros para la acción
+            context: Contexto adicional
+            
+        Returns:
+            AgentResponse con el resultado
+        """
+        # Configuración de memoria
+        memory_context = {
+            "memory_used": False,
+            "operations_found": 0
+        }
+        
+        # Verificar explícitamente si se solicitó usar memoria
+        use_memory = context.get("use_memory", True)  # Por defecto usamos memoria
+        used_memory_for_params = False
+        
+        if self.has_memory() and use_memory:
+            # Construir consulta de memoria más precisa
+            memory_query = f"{action} {query}"
+            self.logger.info(f"Buscando operaciones similares con consulta: {memory_query}")
+            
+            # Intentar buscar operaciones del mismo tipo primero
+            similar_operations = self.recall(
+                query=memory_query, 
+                memory_type="system_operation",
+                limit=3
+            )
+            
+            # Si no encontramos, o si hay referencias explícitas al pasado, 
+            # buscar de forma más amplia
+            contains_past_reference = any(ref in query.lower() for ref in [
+                "antes", "anterior", "previo", "último", "consulté", 
+                "hace un momento", "recuerdas", "mostré", "dijiste"
+            ])
+            
+            if (not similar_operations and (context.get("use_memory", False) or contains_past_reference)):
+                self.logger.info("Búsqueda ampliada de operaciones similares por referencia al pasado")
+                similar_operations = self.recall(query=query, limit=5)
+            
+            # Procesar las operaciones encontradas
+            if similar_operations:
+                memory_context["memory_used"] = True
+                memory_context["operations_found"] = len(similar_operations)
+                self.logger.info(f"Encontradas {len(similar_operations)} operaciones similares")
+                
+                # Para operaciones de archivos, necesitamos la ruta
+                if action in ["list_files", "read_file", "write_file"]:
+                    self.logger.info(f"Intentando inferir path para {action}")
+                    inferred_path = None
+                    
+                    # Buscar la ruta más relevante
+                    for op in similar_operations:
+                        if isinstance(op.content, dict):
+                            # Priorizar operaciones del mismo tipo
+                            if op.content.get("action") == action and "path" in op.content:
+                                inferred_path = op.content["path"]
+                                self.logger.info(f"Inferido path de operación similar: {inferred_path}")
+                                break
+                    
+                    # Si no encontramos path específico, buscar cualquier path
+                    if not inferred_path:
+                        for op in similar_operations:
+                            if isinstance(op.content, dict) and "path" in op.content:
+                                inferred_path = op.content["path"]
+                                self.logger.info(f"Inferido path de cualquier operación: {inferred_path}")
+                                break
+                    
+                    # Si encontramos path, usarlo
+                    if inferred_path:
+                        parameters["path"] = inferred_path
+                        used_memory_for_params = True
+                        self.logger.info(f"Usando path inferido: {inferred_path}")
+            else:
+                self.logger.info("No se encontraron operaciones similares en memoria")
+        
+        # Ejecutar la acción solicitada con los parámetros (posiblemente inferidos)
+        result = ""
+        if action == "execute_command":
+            result = await self._execute_command(parameters.get("command", query))
+        elif action == "read_file":
+            result = await self._read_file(parameters.get("path", ""))
+        elif action == "write_file":
+            result = await self._write_file(
+                parameters.get("path", ""), 
+                parameters.get("content", "")
+            )
+        elif action == "list_files":
+            result = await self._list_files(parameters.get("path", "."))
+        elif action == "system_info":
+            result = await self._get_system_info()
+        elif action == "process_info":
+            result = await self._get_process_info(parameters.get("pid"))
+        elif action == "launch_app":
+            result = await self._launch_application(
+                parameters.get("app_name", ""),
+                parameters.get("args", [])
+            )
+        else:
+            result = f"Unknown action: {action}. Please use one of the supported actions."
+            self.set_state("error")
+            return AgentResponse(
+                content=result,
+                status="error",
+                metadata={
+                    "error": f"Unknown action: {action}",
+                    "memory_used": memory_context.get("memory_used", False),
+                    "used_memory_for_params": used_memory_for_params
+                }
+            )
+        
+        # Guardar la operación en memoria para futuras referencias
+        if self.has_memory():
+            # Preparar contenido de memoria con detalles de operación
+            memory_content = {
+                "action": action,
+                "query": query,
+                "path": parameters.get("path"),
+                "result": result[:500]  # Guardar un resultado truncado para ahorrar espacio
+            }
+            
+            # Determinar importancia según tipo de acción
+            if action in ["write_file", "execute_command"]:
+                importance = 0.7  # Mayor importancia para operaciones de escritura
+            else:
+                importance = 0.5  # Importancia estándar para operaciones de lectura
+            
+            # Recordar esta operación
+            memory_id = self.remember(
+                content=memory_content,
+                importance=importance,
+                memory_type="system_operation",
+                metadata={
+                    "os_type": self.os_type,
+                    "working_dir": self.working_dir,
+                    "action_type": action
+                }
+            )
+            self.logger.debug(f"Operación de sistema almacenada en memoria: {memory_id}")
+        
+        self.set_state("idle")
+        return AgentResponse(
+            content=result,
+            metadata={
+                "action": action,
+                "os_type": self.os_type,
+                "memory_used": memory_context.get("memory_used", False),
+                "used_memory_for_params": used_memory_for_params,
+                **memory_context
+            }
+        )
     
     def get_capabilities(self) -> List[str]:
         """

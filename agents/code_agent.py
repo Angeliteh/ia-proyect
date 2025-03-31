@@ -12,6 +12,7 @@ This agent specializes in code-related tasks, including:
 import logging
 import re
 import os
+import json
 from typing import Dict, List, Any, Optional, Union
 
 from .base import BaseAgent, AgentResponse
@@ -111,12 +112,21 @@ class CodeAgent(BaseAgent):
                 - code: Existing code to reference
                 - language: Programming language 
                 - task: Specific task (generate, explain, improve, fix)
+                - use_memory: Boolean indicating if memory should be used (default: True)
                 
         Returns:
             AgentResponse with the processed result
         """
         self.set_state("processing")
         context = context or {}
+        
+        # Debug logging if requested
+        if context.get("debug_memory", False):
+            self.logger.info(f"DEBUG: Procesando consulta con contexto: {context}")
+            self.logger.info(f"DEBUG: ¿Tiene memoria configurada? {self.has_memory()}")
+            if self.has_memory():
+                memories = self.recall(query=query, limit=3)
+                self.logger.info(f"DEBUG: Se encontraron {len(memories)} memorias relevantes para '{query}'")
         
         task = context.get("task", self._detect_task(query))
         language = context.get("language", self._detect_language(query, context.get("code", "")))
@@ -145,6 +155,8 @@ class CodeAgent(BaseAgent):
                     self.logger.info(f"Intentando cargar modelo: {model_name}")
                     model, model_info = await self.model_manager.load_model(model_name)
                     self.logger.info(f"Modelo cargado correctamente: {model_name}")
+                    # Actualizar el nombre del modelo utilizado
+                    self.model_name = model_info.name
                     break
                 except Exception as model_error:
                     error_message = f"No se pudo cargar el modelo {model_name}: {str(model_error)}"
@@ -161,30 +173,25 @@ class CodeAgent(BaseAgent):
                 # Sino, propagar el error para que el usuario sepa qué pasó
                 raise ValueError(f"No se pudo cargar ningún modelo. Errores: {'; '.join(error_messages)}")
             
-            # Si llegamos aquí, el modelo se cargó correctamente
-            # Actualizar el nombre del modelo utilizado
-            self.model_name = model_info.name
+            # Usar el método especializado para procesar con modelo y memoria
+            # Explícitamente pasamos el flag use_memory del contexto
+            use_memory = context.get("use_memory", True)
+            memory_threshold = context.get("memory_threshold", 0.5)
             
-            # Build prompt based on the task
-            prompt = self._build_prompt(query, task, language, code)
+            # Log para debugging
+            if context.get("debug_memory", False):
+                self.logger.info(f"DEBUG: use_memory={use_memory}, memory_threshold={memory_threshold}")
             
-            # Generate response
-            model_response = await model.generate(prompt)
-            
-            # Extract code from response if needed
-            processed_response = self._process_response(model_response.text, task)
-            
-            response = AgentResponse(
-                content=processed_response,
-                metadata={
-                    "task": task,
-                    "language": language,
-                    "model_used": self.model_name
-                }
+            result = await self._process_with_model(
+                task=task, 
+                language=language, 
+                query=query, 
+                context=context,
+                use_memory=use_memory,
+                memory_threshold=memory_threshold
             )
             
-            self.set_state("idle")
-            return response
+            return result
             
         except Exception as e:
             self.logger.error(f"Error processing code query: {str(e)}")
@@ -200,7 +207,11 @@ class CodeAgent(BaseAgent):
             return AgentResponse(
                 content=f"Error processing your code request: {str(e)}",
                 status="error",
-                metadata={"error": str(e)}
+                metadata={
+                    "error": str(e),
+                    "task": task,
+                    "language": language
+                }
             )
     
     def get_capabilities(self) -> List[str]:
@@ -591,4 +602,250 @@ Alternativamente, puedes usar el EchoAgent o SystemAgent para tareas que no requ
                 "fallback": True,
                 "model_used": "none"
             }
-        ) 
+        )
+
+    async def _process_with_model(self, task, language, query, context=None, use_memory=True, memory_threshold=0.5):
+        """
+        Process a code task using the configured language model.
+        
+        Args:
+            task: The code task (generate, explain, etc.)
+            language: The programming language
+            query: The user query
+            context: Optional additional context
+            use_memory: Boolean indicating if memory should be used
+            memory_threshold: Threshold for memory usage
+            
+        Returns:
+            Generated code or explanation
+        """
+        context = context or {}
+        debug = context.get("debug_memory", False)
+        
+        # Inicializar el objeto para memoria
+        memory_context = {
+            "memory_used": False,
+            "memories_found": 0
+        }
+        
+        relevant_memories = []
+        if self.has_memory() and use_memory:
+            # Búsqueda de memorias relevantes
+            if debug:
+                self.logger.info(f"DEBUG: Buscando memorias relevantes para: {query} (use_memory=True)")
+            else:
+                self.logger.info(f"Buscando memorias relevantes para: {query}")
+            
+            # Para tareas de código, es importante buscar memorias del mismo tipo y lenguaje
+            # Primero extraemos palabras clave relevantes de la consulta
+            import re
+            
+            # Patrones para detectar palabras clave específicas de algoritmos/conceptos
+            algo_patterns = {
+                "factorial": r"factorial",
+                "fibonacci": r"fibonacci|fib",
+                "ordenamiento": r"sort|ordenar|ordenamiento|bubble|quick|merge",
+                "búsqueda": r"search|búsqueda|buscar|binary|lineal"
+            }
+            
+            # Intentar encontrar palabras clave específicas en la consulta
+            keywords = []
+            for algo, pattern in algo_patterns.items():
+                if re.search(pattern, query.lower()):
+                    keywords.append(algo)
+                    if debug:
+                        self.logger.info(f"DEBUG: Detectada palabra clave especial: {algo}")
+            
+            # Inicializar memories como vacío
+            memories = []
+            
+            # Si encontramos palabras clave, hacer una búsqueda específica primero
+            if keywords:
+                for keyword in keywords:
+                    if debug:
+                        self.logger.info(f"DEBUG: Buscando memorias con palabra clave: {keyword}")
+                    keyword_memories = self.recall(
+                        query=keyword,
+                        memory_type="code_interaction",
+                        limit=5
+                    )
+                    if keyword_memories:
+                        if debug:
+                            self.logger.info(f"DEBUG: Encontradas {len(keyword_memories)} memorias con palabra clave '{keyword}'")
+                        memories = keyword_memories
+                        break
+            
+            # Si no encontramos con palabras clave o no hay palabras clave, hacer la búsqueda normal
+            if not keywords or not memories:
+                if debug:
+                    self.logger.info(f"DEBUG: Realizando búsqueda estándar por '{query}'")
+                memories = self.recall(
+                    query=query,
+                    memory_type="code_interaction",
+                    limit=5
+                )
+            
+            if memories:
+                if debug:
+                    self.logger.info(f"DEBUG: Encontradas {len(memories)} memorias relevantes")
+                    for i, mem in enumerate(memories):
+                        if isinstance(mem.content, dict):
+                            query_content = mem.content.get("query", "")
+                            self.logger.info(f"DEBUG: Memoria {i+1} - Query: {query_content}")
+                
+                memory_context["memory_used"] = True
+                memory_context["memories_found"] = len(memories)
+                memory_context["memory_content"] = []
+                
+                # Filtrar memorias por lenguaje si es relevante
+                language_memories = []
+                if language and language != "any":
+                    for mem in memories:
+                        # Verificar lenguaje en metadata o content
+                        mem_language = None
+                        if isinstance(mem.content, dict):
+                            mem_language = mem.content.get("language")
+                        
+                        if not mem_language and isinstance(mem.metadata, dict):
+                            mem_language = mem.metadata.get("language")
+                        
+                        if mem_language and mem_language.lower() == language.lower():
+                            language_memories.append(mem)
+                    
+                    if language_memories:
+                        if debug:
+                            self.logger.info(f"DEBUG: Filtradas a {len(language_memories)} memorias en lenguaje {language}")
+                        memories = language_memories
+                
+                relevant_memories = memories
+                
+                # Extraer contenido para prompt
+                for mem in memories:
+                    if isinstance(mem.content, dict):
+                        # Para contenido estructurado
+                        if "response" in mem.content:
+                            memory_context["memory_content"].append(mem.content["response"])
+                        elif "code" in mem.content:
+                            memory_context["memory_content"].append(mem.content["code"])
+                        else:
+                            memory_context["memory_content"].append(json.dumps(mem.content))
+                    else:
+                        # Para contenido simple (texto)
+                        memory_context["memory_content"].append(str(mem.content))
+            else:
+                if debug:
+                    self.logger.info("DEBUG: No se encontraron memorias relevantes en primera búsqueda")
+                
+                # Si se solicitó explícitamente usar memoria pero no se encontró ninguna,
+                # buscar más ampliamente sin filtrar por tipo
+                if use_memory:
+                    if debug:
+                        self.logger.info("DEBUG: Realizando búsqueda ampliada por memorias")
+                    
+                    broader_memories = self.recall(
+                        query=query,
+                        limit=3
+                    )
+                    if broader_memories:
+                        if debug:
+                            self.logger.info(f"DEBUG: Encontradas {len(broader_memories)} memorias en búsqueda ampliada")
+                        memory_context["memory_used"] = True
+                        memory_context["memories_found"] = len(broader_memories)
+                        memory_context["memory_content"] = [str(mem.content) for mem in broader_memories]
+                        relevant_memories = broader_memories
+        elif not use_memory and debug:
+            self.logger.info("DEBUG: Uso de memoria desactivado explícitamente")
+        elif not self.has_memory() and debug:
+            self.logger.info("DEBUG: Agente no tiene memoria configurada")
+        
+        # Enhance the prompt with memory information if available
+        enhanced_query = query
+        if relevant_memories and "memory_content" in memory_context:
+            # Extract all relevant code examples from memory
+            code_examples = []
+            similar_queries = []
+            
+            for memory in relevant_memories:
+                # Check if this is a stored code interaction
+                if isinstance(memory.content, dict) and 'response' in memory.content:
+                    response = memory.content.get('response', '')
+                    original_query = memory.content.get('query', '')
+                    
+                    # Extract code blocks from response
+                    import re
+                    code_blocks = re.findall(r'```(?:python|javascript|java|cpp|c\+\+|c#|csharp|go|rust|sql)?(.+?)```', 
+                                           response, re.DOTALL)
+                    
+                    if code_blocks:
+                        # Found code blocks, add them as examples
+                        for i, block in enumerate(code_blocks):
+                            code_examples.append(f"Previous code example for '{original_query}':\n```\n{block.strip()}\n```")
+                    
+                    # Add the original query as a similar query
+                    if original_query and original_query != query:
+                        similar_queries.append(f"- You previously answered: '{original_query}'")
+                
+                # Also check if the memory content is a direct string with code
+                elif isinstance(memory.content, str) and "```" in memory.content:
+                    code_examples.append(f"Previous code:\n{memory.content}")
+            
+            # Build enhanced query with memory context
+            memory_context_text = ""
+            if code_examples:
+                memory_context_text += "\n\nMemory context:\n"
+                memory_context_text += "\n".join(code_examples)
+            
+            if similar_queries:
+                memory_context_text += "\n\nSimilar queries:\n"
+                memory_context_text += "\n".join(similar_queries)
+            
+            enhanced_query += memory_context_text
+        
+        # Build prompt based on the task and enhanced query
+        prompt = self._build_prompt(enhanced_query, task, language, "")
+        
+        # Generate response - corrigiendo el error de coroutine
+        model, model_info = await self.model_manager.load_model(self.model_name)
+        model_response = await model.generate(prompt)
+        
+        # Extract code from response if needed
+        processed_response = self._process_response(model_response.text, task)
+        
+        # Store the interaction in memory for future reference
+        if self.has_memory():
+            memory_content = {
+                "query": query,
+                "task": task,
+                "language": language,
+                "code": "",
+                "response": processed_response
+            }
+            
+            # More important for tasks that generate new code
+            importance = 0.8 if task == "generate" else 0.6
+            
+            memory_id = self.remember(
+                content=memory_content,
+                importance=importance,
+                memory_type="code_interaction",
+                metadata={
+                    "language": language,
+                    "task": task,
+                    "model_used": self.model_name,
+                    "contains_code": "```" in processed_response
+                }
+            )
+            self.logger.debug(f"Stored code interaction in memory: {memory_id}")
+        
+        response = AgentResponse(
+            content=processed_response,
+            metadata={
+                "task": task,
+                "language": language,
+                "model_used": self.model_name,
+                **memory_context
+            }
+        )
+        
+        self.set_state("idle")
+        return response

@@ -105,6 +105,7 @@ memory:
     - "semantic"         # Búsqueda por similitud semántica (vectores)
     - "temporal"         # Búsqueda por tiempo/orden
     - "relevance"        # Búsqueda por relevancia contextual
+    - "keyword_fallback" # Búsqueda por palabras clave cuando falla la búsqueda exacta
   core_classes:
     - name: "MemoryItem"
       description: "Clase base para todos los ítems de memoria"
