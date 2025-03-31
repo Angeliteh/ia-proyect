@@ -1321,7 +1321,7 @@ async def run_mcp_http_server(host="localhost", port=8080, db_path=None):
     Returns:
         Objeto servidor HTTP.
     """
-    from mcp.transport.http_server import start_http_server
+    from mcp.transports.http_server import start_http_server
     
     # Inicializar MCP si no se ha hecho
     from mcp.core.init import is_mcp_initialized, initialize_mcp, async_initialize_mcp
@@ -1372,7 +1372,7 @@ def run_http_server(host="localhost", port=8080, db_path=None):
     
     # Si el loop ya está corriendo, usar create_task
     if loop.is_running():
-        from mcp.transport.http_server import start_http_server
+        from mcp.transports.http_server import start_http_server
         
         # Crear una versión no asíncrona para este caso
         http_server = HTTPServer((host, port), SQLiteHTTPHandler)

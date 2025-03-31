@@ -1,7 +1,25 @@
 """
-Módulos de transporte para el protocolo MCP.
+Componentes de transporte para MCP.
 
-Este paquete contiene los mecanismos de transporte para
-comunicarse con servidores y clientes MCP, tales como
-HTTP, WebSockets, y otros.
-""" 
+Este módulo proporciona mecanismos de transporte para la comunicación
+entre clientes y servidores MCP, incluyendo HTTP, WebSockets, etc.
+"""
+
+try:
+    from .http import HttpTransport
+except ImportError:
+    pass
+
+try:
+    from .http import MCPHttpServer
+except ImportError:
+    pass
+
+__all__ = []
+
+# Agregar dinámicamente los transportes disponibles
+if 'HttpTransport' in globals():
+    __all__.append('HttpTransport')
+
+if 'MCPHttpServer' in globals():
+    __all__.append('MCPHttpServer') 

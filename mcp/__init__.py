@@ -1,47 +1,56 @@
 """
 Implementación del Model Context Protocol (MCP).
 
-Este paquete implementa el estándar MCP desarrollado por Anthropic,
-proporcionando una infraestructura para que los modelos de IA puedan
-acceder a datos externos de forma unificada a través de un protocolo
-común.
+Este paquete implementa el estándar MCP desarrollado para facilitar la comunicación
+entre modelos de IA y fuentes de datos/herramientas externas, proporcionando 
+una infraestructura que permite a los modelos acceder a datos externos de forma 
+unificada a través de un protocolo común.
 
 El MCP define un formato estándar para solicitudes y respuestas entre
 clientes (modelos o agentes) y servidores (fuentes de datos o herramientas).
+
+Módulos principales:
+- core: Componentes fundamentales del protocolo
+- servers: Implementaciones de servidores MCP
+- clients: Implementaciones de clientes MCP
+- transport: Componentes de transporte y comunicación
+- connectors: Adaptadores para sistemas externos
 """
 
-# Importar funciones de inicialización
-from mcp.core.init import (
-    initialize_mcp, 
+# Importar desde el módulo core
+from mcp.core import (
+    # Clases del protocolo
+    MCPMessage,
+    MCPResponse,
+    MCPAction,
+    MCPResource,
+    MCPError,
+    MCPErrorCode,
+    
+    # Clases base
+    MCPServerBase,
+    MCPClientBase,
+    
+    # Sistema de registro
+    MCPRegistry,
+    
+    # Funciones de inicialización
+    initialize_mcp,
     async_initialize_mcp,
-    shutdown_mcp, 
+    shutdown_mcp,
     get_registry,
-    is_mcp_initialized
+    is_mcp_initialized,
+    
+    # Gestor principal
+    MCP
 )
 
-# Importar el gestor principal
-from mcp.core.mcp_manager import MCP
-
-# Importar el monitor de recursos
-from mcp.utils.resource_monitor import ResourceMonitor
-
-# Importar clases principales del protocolo
-from mcp.core.protocol import (
-    MCPMessage, 
-    MCPResponse, 
-    MCPAction, 
-    MCPResource, 
-    MCPError, 
-    MCPErrorCode
-)
-
-# Importar clases base
-from mcp.core.server_base import MCPServerBase
-from mcp.core.client_base import MCPClientBase
-from mcp.core.registry import MCPRegistry
-
-# Importar conectores
-from mcp.connectors.http_client import MCPHttpClient
+# Importar conectores comunes para conveniencia
+try:
+    from mcp.connectors.http_client import MCPHttpClient
+except ImportError:
+    # Si no existe, no interrumpir la carga del módulo
+    pass
 
 # Definir los componentes públicos del paquete
 __all__ = [
@@ -65,12 +74,13 @@ __all__ = [
     'MCPClientBase',
     'MCPRegistry',
     
-    # Conectores
-    'MCPHttpClient',
-    
     # Gestor principal
     'MCP'
 ]
+
+# Si los conectores están disponibles, incluirlos
+if 'MCPHttpClient' in globals():
+    __all__.append('MCPHttpClient')
 
 # Versión del paquete
 __version__ = '0.1.0' 

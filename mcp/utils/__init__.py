@@ -1,6 +1,8 @@
 """
-Utilidades para el sistema MCP.
+Utilidades para MCP.
 
-Este paquete contiene funciones y clases de utilidad
-que son usadas por diversos componentes del sistema MCP.
-""" 
+Este módulo proporciona herramientas y utilidades comunes
+para el funcionamiento del protocolo MCP.
+"""
+
+__all__ = [] 

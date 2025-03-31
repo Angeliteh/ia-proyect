@@ -1,11 +1,17 @@
 """
-Módulo de conectores para el Model Context Protocol (MCP).
+Adaptadores y conectores genéricos para MCP.
 
-Este módulo contiene implementaciones de conectores que permiten la comunicación
-entre clientes y servidores MCP utilizando diferentes protocolos de transporte
-como HTTP, WebSockets, línea de comandos, etc.
+Este módulo proporciona conectores para integrar 
+diferentes tipos de recursos con el protocolo MCP.
 """
 
-from mcp.connectors.http_client import MCPHttpClient
+try:
+    from .filesystem import FilesystemConnector
+except ImportError:
+    pass
 
-__all__ = ['MCPHttpClient'] 
+__all__ = []
+
+# Agregar dinámicamente los conectores disponibles
+if 'FilesystemConnector' in globals():
+    __all__.append('FilesystemConnector') 

@@ -1,23 +1,8 @@
 """
-Módulo protocol para el Model Context Protocol (MCP).
+Definiciones y extensiones del protocolo MCP.
 
-Este módulo implementa las clases e interfaces del protocolo MCP.
+Este módulo contiene las definiciones detalladas del protocolo, 
+incluyendo tipos de mensajes, acciones, recursos y formatos de respuesta.
 """
 
-from .base import (
-    MCPMethod,
-    MCPResponseStatus,
-    MCPRequest,
-    MCPResponse,
-    MCPTool,
-    MCPInterface
-)
-
-__all__ = [
-    'MCPMethod',
-    'MCPResponseStatus',
-    'MCPRequest',
-    'MCPResponse',
-    'MCPTool',
-    'MCPInterface'
-] 
+__all__ = [] 

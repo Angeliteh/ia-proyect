@@ -1,5 +1,8 @@
 """
-Base para clientes MCP.
+[OBSOLETO] Base para clientes MCP.
+
+⚠️ ADVERTENCIA: Este módulo está obsoleto y será eliminado en versiones futuras.
+⚠️ Utilice mcp.core.client_base.MCPClientBase para nuevas implementaciones.
 
 Este módulo define la clase base para implementar clientes MCP.
 """
@@ -8,6 +11,7 @@ import asyncio
 import json
 import logging
 import uuid
+import warnings
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional, Union
 
@@ -24,9 +28,20 @@ from mcp.protocol import (
     MCPInterface
 )
 
+# Emitir advertencia de obsolescencia
+warnings.warn(
+    "El módulo mcp.clients.base está obsoleto y será eliminado en versiones futuras. "
+    "Utilice mcp.core.client_base.MCPClientBase para nuevas implementaciones.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
 class MCPClient(MCPInterface):
     """
-    Clase base para implementar clientes MCP que se conectan a servidores MCP.
+    [OBSOLETO] Clase base para implementar clientes MCP que se conectan a servidores MCP.
+    
+    ⚠️ ADVERTENCIA: Esta clase está obsoleta y será eliminada en versiones futuras.
+    ⚠️ Utilice mcp.core.client_base.MCPClientBase para nuevas implementaciones.
     
     Los clientes MCP se conectan a servidores MCP para utilizar las herramientas
     y datos que estos exponen.

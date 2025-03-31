@@ -1,5 +1,8 @@
 """
-Base para servidores MCP.
+[OBSOLETO] Base para servidores MCP.
+
+⚠️ ADVERTENCIA: Este módulo está obsoleto y será eliminado en versiones futuras.
+⚠️ Utilice mcp.core.server_base.MCPServerBase para nuevas implementaciones.
 
 Este módulo define la clase base para implementar servidores MCP.
 """
@@ -10,6 +13,7 @@ import logging
 import uuid
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional, Callable, Union
+import warnings
 
 # Importar clases del protocolo MCP
 import sys
@@ -24,9 +28,20 @@ from mcp.protocol import (
     MCPInterface
 )
 
+# Emitir advertencia de obsolescencia
+warnings.warn(
+    "El módulo mcp.servers.base está obsoleto y será eliminado en versiones futuras. "
+    "Utilice mcp.core.server_base.MCPServerBase para nuevas implementaciones.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
 class MCPServer(MCPInterface):
     """
-    Clase base para implementar servidores MCP que exponen herramientas.
+    [OBSOLETO] Clase base para implementar servidores MCP que exponen herramientas.
+    
+    ⚠️ ADVERTENCIA: Esta clase está obsoleta y será eliminada en versiones futuras.
+    ⚠️ Utilice mcp.core.server_base.MCPServerBase para nuevas implementaciones.
     
     Los servidores MCP proporcionan un conjunto de herramientas que pueden
     ser utilizadas por los clientes MCP para realizar operaciones específicas.
