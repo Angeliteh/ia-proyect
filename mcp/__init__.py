@@ -11,7 +11,19 @@ clientes (modelos o agentes) y servidores (fuentes de datos o herramientas).
 """
 
 # Importar funciones de inicialización
-from mcp.core.init import initialize_mcp, shutdown_mcp, get_registry
+from mcp.core.init import (
+    initialize_mcp, 
+    async_initialize_mcp,
+    shutdown_mcp, 
+    get_registry,
+    is_mcp_initialized
+)
+
+# Importar el gestor principal
+from mcp.core.mcp_manager import MCP
+
+# Importar el monitor de recursos
+from mcp.utils.resource_monitor import ResourceMonitor
 
 # Importar clases principales del protocolo
 from mcp.core.protocol import (
@@ -35,8 +47,10 @@ from mcp.connectors.http_client import MCPHttpClient
 __all__ = [
     # Funciones de inicialización
     'initialize_mcp',
+    'async_initialize_mcp',
     'shutdown_mcp',
     'get_registry',
+    'is_mcp_initialized',
     
     # Clases del protocolo
     'MCPMessage',
@@ -52,7 +66,10 @@ __all__ = [
     'MCPRegistry',
     
     # Conectores
-    'MCPHttpClient'
+    'MCPHttpClient',
+    
+    # Gestor principal
+    'MCP'
 ]
 
 # Versión del paquete

@@ -2,41 +2,31 @@
 servers:
   # Servidor de sistema de archivos
   filesystem:
-    class: mcp_servers.filesystem.FilesystemServer
+    class: mcp.mcp_servers.filesystem.FilesystemServer
     config:
       description: "Servidor MCP para acceso al sistema de archivos"
       root_path: "./data"
       allow_write: true
       auth_required: false
   
-  # Servidor de búsqueda web
-  web_search:
-    class: mcp_servers.web_search.WebSearchServer
+  # Servidor de eco para pruebas
+  echo:
+    class: examples.mcp.mcp_core_example.SimpleEchoServer
     config:
-      description: "Servidor MCP para búsqueda en la web"
-      auth_required: true
-      max_results: 10
-      default_search_engine: "google"
-  
-  # Servidor de base de datos
-  database:
-    class: mcp_servers.database.DatabaseServer
-    config:
-      description: "Servidor MCP para acceso a bases de datos"
-      auth_required: true
-      connection_string: "sqlite:///data/database.sqlite"
+      description: "Servidor de eco para pruebas MCP"
+      auth_required: false
 
 # Configuración de clientes MCP
 clients:
   # Cliente HTTP general
   http_client:
-    class: mcp.core.client_base.MCPHttpClient
+    class: mcp.connectors.http_client.MCPHttpClient
     config:
       timeout: 30
   
   # Cliente para servidores locales
   local_client:
-    class: mcp_clients.local.LocalClient
+    class: mcp.mcp_clients.local.LocalClient
     config:
       timeout: 5
 

@@ -77,7 +77,7 @@ class MCPRegistry:
         """
         if name in self._servers:
             raise ValueError(f"Ya existe un servidor registrado con el nombre '{name}'")
-            
+
         if not inspect.isclass(server_class) or not issubclass(server_class, MCPServerBase):
             raise ValueError(f"La clase proporcionada debe heredar de MCPServerBase")
             
