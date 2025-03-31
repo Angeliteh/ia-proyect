@@ -160,7 +160,7 @@ class BaseAgent(ABC):
         """Check if this agent has memory capabilities enabled."""
         return self.memory_manager is not None
         
-    def remember(self, content, importance=0.5, memory_type="general", metadata=None):
+    def remember(self, content, importance=0.5, memory_type="general", metadata=None, generate_embedding=True):
         """
         Store information in the agent's memory.
         
@@ -169,6 +169,7 @@ class BaseAgent(ABC):
             importance: How important is this memory (0.0 to 1.0)
             memory_type: Type of memory (general, episodic, etc.)
             metadata: Additional metadata about the memory
+            generate_embedding: Whether to generate an embedding for semantic search
             
         Returns:
             The memory_id if successful, None otherwise
@@ -185,11 +186,42 @@ class BaseAgent(ABC):
         })
         
         try:
+            # Check if memory manager has direct MCP support for vector generation
+            if hasattr(self.memory_manager, 'memory_system') and hasattr(self.memory_manager.memory_system, 'mcp_client'):
+                from mcp.core import MCPMessage, MCPAction, MCPResource
+                
+                # Use direct MCP support for memory creation with embedding
+                create_msg = MCPMessage(
+                    action=MCPAction.CREATE,
+                    resource_type=MCPResource.MEMORY,
+                    resource_path="/",
+                    data={
+                        "content": content,
+                        "memory_type": memory_type,
+                        "importance": importance,
+                        "metadata": meta,
+                        "generate_embedding": generate_embedding
+                    }
+                )
+                
+                try:
+                    response = self.memory_manager.memory_system.mcp_client.send_message(create_msg)
+                    if response.success:
+                        memory_id = response.data.get('id')
+                        self.logger.debug(f"Memory stored via MCP with embedding={generate_embedding}, id={memory_id}")
+                        return memory_id
+                    else:
+                        self.logger.warning(f"MCP memory creation failed: {response.error}")
+                except Exception as e:
+                    self.logger.warning(f"Error in MCP memory creation, falling back: {e}")
+            
+            # Fallback to standard memory manager
             memory_id = self.memory_manager.add_memory(
                 content=content,
                 memory_type=memory_type,
                 importance=importance,
-                metadata=meta
+                metadata=meta,
+                generate_embedding=generate_embedding
             )
             self.logger.debug(f"Stored memory: {memory_id}")
             return memory_id
@@ -248,15 +280,83 @@ class BaseAgent(ABC):
                 )
                 return results
             
-            # If no query provided, get recent memories
-            return self.memory_manager.get_recent_memories(
+            # If no query provided, just get recent memories of the specified type
+            return self.memory_manager.get_memories_by_type(
                 memory_type=memory_type,
                 limit=limit,
                 metadata=meta_filter
             )
             
         except Exception as e:
-            self.logger.error(f"Error recalling from memory: {e}")
+            self.logger.error(f"Error recalling memories: {e}")
+            return []
+    
+    def recall_semantic(self, query, memory_type=None, limit=5, threshold=0.2, metadata_filter=None):
+        """
+        Recall information using semantic vector search.
+        
+        This method performs a vector-based semantic search directly, without
+        falling back to keyword search, using the MCP memory server.
+        
+        Args:
+            query: The query to search for semantically 
+            memory_type: Type of memory to search
+            limit: Maximum number of results
+            threshold: Minimum similarity threshold (0.0 to 1.0)
+            metadata_filter: Filter memories by metadata
+            
+        Returns:
+            List of memory items matching the query semantically
+        """
+        if not self.has_memory():
+            self.logger.debug("Cannot recall semantically - no memory manager available")
+            return []
+            
+        # Prepare metadata filter
+        meta_filter = metadata_filter or {}
+        
+        try:
+            # Use direct MCP vector search if available
+            if hasattr(self.memory_manager, 'memory_system') and hasattr(self.memory_manager.memory_system, 'mcp_client'):
+                from mcp.core import MCPMessage, MCPAction
+                
+                # Construct MCP message for vector search
+                search_msg = MCPMessage(
+                    action=MCPAction.SEARCH,
+                    resource_type="vector",
+                    resource_path="/",
+                    data={
+                        "query": query,
+                        "limit": limit,
+                        "threshold": threshold,
+                        "memory_type": memory_type,
+                        "metadata": meta_filter
+                    }
+                )
+                
+                # Send the message and get results
+                try:
+                    response = self.memory_manager.memory_system.mcp_client.send_message(search_msg)
+                    if response.success:
+                        self.logger.debug(f"Vector search via MCP successful, found {len(response.data.get('results', []))} results")
+                        return response.data.get('results', [])
+                    else:
+                        self.logger.warning(f"Vector search via MCP failed: {response.error}")
+                except Exception as e:
+                    self.logger.warning(f"Error in MCP vector search, falling back: {e}")
+            
+            # Fallback to standard memory manager search
+            self.logger.debug("Using standard memory search")
+            return self.memory_manager.search_memories(
+                query=query,
+                memory_type=memory_type,
+                limit=limit,
+                threshold=threshold,
+                metadata=meta_filter
+            )
+            
+        except Exception as e:
+            self.logger.error(f"Error in semantic recall: {e}")
             return []
     
     def forget(self, memory_id):

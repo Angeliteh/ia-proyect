@@ -44,6 +44,7 @@ class MCPResource(str, enum.Enum):
     WEB_SEARCH = "web_search"  # Búsqueda en la web
     LOCAL_SEARCH = "local_search"  # Búsqueda local (lugares, negocios, etc.)
     DATABASE = "database"      # Base de datos
+    VECTOR = "vector"          # Búsqueda vectorial/semántica
     
     # Recursos del sistema
     SYSTEM = "system"     # Información del sistema

@@ -1,5 +1,5 @@
 {
-  "last_updated": "2025-03-31T00:49:52.556350",
+  "last_updated": "2025-03-31T16:05:42.897740",
   "files": {
     "tts_es_-1248113702919262210.mp3": {
       "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-1248113702919262210.mp3",
@@ -105,6 +105,174 @@
       "usage_count": 1,
       "metadata": {
         "text": "Soy Jarvis, tu asistente personal. Puedo resolver tareas complejas coordinando agentes especializado...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-99202725981916673.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-99202725981916673.mp3",
+      "hash": "bbbb51166ac48cf95160cc38b841dfea",
+      "created_at": "2025-03-31T15:04:09.162750",
+      "last_used": "2025-03-31T15:11:37.767375",
+      "usage_count": 4,
+      "metadata": {
+        "text": "Soy Asistente. No encontr\u00e9 recuerdos que coincidan con '\u00bfQu\u00e9 sabes sobre redes neuronales y aprendiz...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_1017885934453689857.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_1017885934453689857.mp3",
+      "hash": "b283a8079e2292c61fabaa14ffcc8b3f",
+      "created_at": "2025-03-31T15:04:24.262502",
+      "last_used": "2025-03-31T15:04:24.266049",
+      "usage_count": 2,
+      "metadata": {
+        "text": "Soy Asistente. Resultados encontrados:\n1. [0.32] El aprendizaje por refuerzo es un tipo de aprendiza...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_84168714669736963.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_84168714669736963.mp3",
+      "hash": "a3c8e235b586b1edf606905802a4be6f",
+      "created_at": "2025-03-31T15:05:15.981780",
+      "last_used": "2025-03-31T15:05:15.981780",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy Asistente. Resultados encontrados:\n1. [0.27] Madrid es la capital de Espa\u00f1a y se encuentra en el...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-150916637026396673.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-150916637026396673.mp3",
+      "hash": "aae2305742cd8f0203b43b1e1ec10f9f",
+      "created_at": "2025-03-31T15:12:07.394497",
+      "last_used": "2025-03-31T15:12:07.397509",
+      "usage_count": 2,
+      "metadata": {
+        "text": "Soy Asistente. Resultados encontrados:\n1. [0.36] El aprendizaje por refuerzo es un tipo de aprendiza...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_1657367698893622275.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_1657367698893622275.mp3",
+      "hash": "112f535c16d4f0d72966b0e767aa9391",
+      "created_at": "2025-03-31T15:12:49.455323",
+      "last_used": "2025-03-31T15:12:49.455323",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy Asistente. No encontr\u00e9 recuerdos que coincidan con 'Busca en tu memoria informaci\u00f3n sobre transf...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-1128702261969019392.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-1128702261969019392.mp3",
+      "hash": "caa436d39263dbaf70651a22e9b36b01",
+      "created_at": "2025-03-31T15:20:01.469967",
+      "last_used": "2025-03-31T15:20:01.469967",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy Asistente Principal. Agent memory not found",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_871474724585070592.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_871474724585070592.mp3",
+      "hash": "6282b17b23e6c8ce75276c708e3e9e07",
+      "created_at": "2025-03-31T15:23:54.932832",
+      "last_used": "2025-03-31T15:51:18.223042",
+      "usage_count": 8,
+      "metadata": {
+        "text": "Soy Asistente Principal. No encontr\u00e9 recuerdos que coincidan con '\u00bfQu\u00e9 sabes sobre redes neuronales ...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_1586756382259931392.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_1586756382259931392.mp3",
+      "hash": "73f2301056002e29e6e8e488b77ebe70",
+      "created_at": "2025-03-31T15:25:07.381787",
+      "last_used": "2025-03-31T15:25:07.385799",
+      "usage_count": 2,
+      "metadata": {
+        "text": "Soy Asistente Principal. Resultados encontrados:\n1. [0.36] El aprendizaje por refuerzo es un tipo de...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-1950193402106046464.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-1950193402106046464.mp3",
+      "hash": "faeda6aeaa18e132e38aac7f8273f61b",
+      "created_at": "2025-03-31T15:25:52.349443",
+      "last_used": "2025-03-31T15:25:52.349443",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy Asistente Principal. Resultados encontrados:\n1. [0.31] Madrid es la capital de Espa\u00f1a y se encue...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-385014368690155523.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-385014368690155523.mp3",
+      "hash": "489e4a71f7b4cc2429b19684ec02f7f3",
+      "created_at": "2025-03-31T15:45:02.801204",
+      "last_used": "2025-03-31T15:45:02.801204",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy Asistente Principal. No encontr\u00e9 recuerdos que coincidan con 'Busca en tu memoria informaci\u00f3n so...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-2172772225628000258.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-2172772225628000258.mp3",
+      "hash": "e800c6c306c41bf88f58f87cc24f6b12",
+      "created_at": "2025-03-31T15:46:29.374940",
+      "last_used": "2025-03-31T15:46:29.374940",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy Asistente Principal. Resultados encontrados:\n1. El aprendizaje por refuerzo es un tipo de aprend...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-2157571393025638402.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-2157571393025638402.mp3",
+      "hash": "e8841b4f083ec5caf940660d57abbdfc",
+      "created_at": "2025-03-31T15:51:33.262005",
+      "last_used": "2025-03-31T15:51:33.265003",
+      "usage_count": 2,
+      "metadata": {
+        "text": "Soy Asistente Principal. Resultados encontrados:\n1. El aprendizaje por refuerzo es un tipo de aprend...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_354065321252771329.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_354065321252771329.mp3",
+      "hash": "f240d9026d2cfa0da974eec1b3d52581",
+      "created_at": "2025-03-31T15:52:19.657792",
+      "last_used": "2025-03-31T15:52:19.657792",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy Asistente Principal. Resultados encontrados:\n1. Madrid es la capital de Espa\u00f1a y la ciudad m\u00e1s p...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-61538993271597059.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-61538993271597059.mp3",
+      "hash": "97a7fff6b24d7d085225b653c41e9e10",
+      "created_at": "2025-03-31T16:05:42.897740",
+      "last_used": "2025-03-31T16:05:42.897740",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy Asistente Principal. Resultados encontrados:\n1. Los gatos dom\u00e9sticos (Felis catus) son mam\u00edferos...",
         "voice_id": "es-male-1",
         "lang_code": "es"
       }

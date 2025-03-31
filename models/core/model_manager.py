@@ -177,6 +177,10 @@ class ModelManager:
             self._load_default_models()
             
         self.logger.info(f"Gestor de modelos inicializado con {len(self.models_info)} modelos configurados")
+        
+        # Modelo de embedding y cache
+        self.embedding_model = None
+        self.embedding_cache = {}
     
     def _load_config(self, config_path: str):
         """Carga la configuración de modelos desde un archivo."""
@@ -328,4 +332,56 @@ class ModelManager:
             model_data = info.to_dict()
             model_data["is_loaded"] = is_loaded
             models.append(model_data)
-        return models 
+        return models
+    
+    def has_embedding_model(self) -> bool:
+        """
+        Verifica si hay un modelo disponible para generar embeddings.
+        
+        Returns:
+            True si hay un modelo para embeddings disponible, False en caso contrario
+        """
+        # Por ahora, siempre devolvemos True y usamos el método simple_embedding
+        # En un sistema real, se verificaría si hay un modelo adecuado cargado
+        return True
+        
+    def embed_text(self, text: str) -> List[float]:
+        """
+        Genera un embedding vectorial para un texto.
+        
+        Args:
+            text: Texto para generar el embedding
+            
+        Returns:
+            Vector de embedding (lista de floats)
+        """
+        # Verificar si tenemos el embedding en caché
+        if text in self.embedding_cache:
+            return self.embedding_cache[text]
+            
+        # Función de embedding simple por defecto
+        # Esta función es solo para demostración y debería reemplazarse con un modelo real
+        import hashlib
+        embedding_dim = 768  # Dimensión estándar para demostración
+        
+        # Función de embedding simple basada en hash de palabras
+        words = text.lower().split()
+        vector = [0.0] * embedding_dim
+        
+        for i, word in enumerate(words):
+            # Hash de la palabra para generar un valor pseudo-aleatorio
+            hash_val = int(hashlib.md5(word.encode()).hexdigest(), 16)
+            # Distribuir el valor en varias posiciones del vector
+            for j in range(min(5, embedding_dim)):
+                pos = (hash_val + j) % embedding_dim
+                vector[pos] += (1.0 / (i + 1)) * (0.9 ** j)
+        
+        # Normalizar el vector
+        norm = sum(v**2 for v in vector) ** 0.5
+        if norm > 0:
+            vector = [v / norm for v in vector]
+            
+        # Guardar en caché para reutilizar
+        self.embedding_cache[text] = vector
+        
+        return vector 

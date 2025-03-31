@@ -212,51 +212,49 @@ class MainAssistant(BaseAgent):
         
         return response
     
-    async def _determine_agent_for_query(self, query: str, context: Dict) -> tuple:
+    async def _determine_agent_for_query(self, query: str, context: Optional[Dict] = None) -> tuple:
         """
-        Determine which agent should handle this query.
+        Determine which agent should handle the given query.
         
         Args:
-            query: User's query
-            context: Request context
+            query: User's query to analyze
+            context: Optional context information
             
         Returns:
-            Tuple of (agent_type, optional_response)
+            tuple: (agent_type, optional_response)
         """
-        # Check if context already specifies an agent
-        if "target_agent" in context:
-            return context["target_agent"], None
-            
+        # If context explicitly specifies an agent, use that
+        if context and "agent_type" in context:
+            return context["agent_type"], None
+        
+        # Convert query to lowercase for easier matching
         query_lower = query.lower()
         
-        # Simple keyword-based routing
-        # This could be replaced with more sophisticated NLP in the future
+        # Check for explicit agent mentions
+        explicit_patterns = {
+            "code": ["genera código", "crea una función", "escribe un programa", "código para", "código en"],
+            "system": ["ejecuta", "abre archivo", "directorio", "sistema operativo", "comando"],
+            "memory": ["recuerda", "memoria", "olvidar", "recordar", "memorizar", "hecho"]
+        }
         
-        # Handle direct queries to the main assistant
-        if any(x in query_lower for x in ["hola", "buenos días", "buenas tardes", "ayuda", "quién eres"]):
-            return "direct", None
-            
-        # Check for code-related queries
-        if any(x in query_lower for x in ["código", "programa", "script", "función", "programar"]):
-            return "code", None
-            
-        # Check for system-related queries
-        if any(x in query_lower for x in ["sistema", "archivo", "fichero", "directorio", "carpeta", "ejecutar"]):
-            return "system", None
-            
-        # Echo agent queries
-        if any(x in query_lower for x in ["eco", "echo", "repite", "repiteme"]):
-            return "echo", None
-            
-        # Explicitly mentioned orchestrator
-        if any(x in query_lower for x in ["orquestador", "orchestrator", "tarea compleja"]):
-            return "orchestrator", None
-            
-        # Default to orchestrator for complex queries or direct for simple ones
-        if len(query.split()) > 10 or "?" in query:
-            return "orchestrator", None
-        else:
-            return "direct", None
+        # Check for explicit agent requests first
+        for agent_type, patterns in explicit_patterns.items():
+            for pattern in patterns:
+                if pattern in query_lower:
+                    self.logger.info(f"Matched explicit pattern '{pattern}' for {agent_type} agent")
+                    return agent_type, None
+        
+        # Check for memory-related patterns
+        memory_keywords = ["qué sabes sobre", "qué recuerdas de", "búsqueda", "busca información",
+                         "qué información tienes", "busca en tu memoria"]
+        
+        for keyword in memory_keywords:
+            if keyword in query_lower:
+                self.logger.info(f"Matched memory pattern '{keyword}' - using memory agent")
+                return "memory", None
+        
+        # Default to direct handling for simple queries
+        return "direct", None
     
     async def _handle_direct_query(self, query: str, context: Dict) -> AgentResponse:
         """
@@ -411,7 +409,8 @@ class MainAssistant(BaseAgent):
         type_to_id_map = {
             "code": "code_assistant",
             "system": "system_manager",
-            "echo": "echo_service"
+            "echo": "echo_service",
+            "memory": "memory" # Mapeo directo para agente de memoria
         }
         
         # Try direct mapping first
@@ -426,11 +425,15 @@ class MainAssistant(BaseAgent):
             if agent_type in capabilities:
                 return agent_id
                 
-            # Check for partial matches
+            # Check for partial matches in capabilities
             for capability in capabilities:
                 if agent_type in capability:
                     return agent_id
-                    
+            
+            # Check for semantic search capability for memory
+            if agent_type == "memory" and "semantic_search" in capabilities:
+                return agent_id
+                
         return None
     
     def _get_system_capabilities_description(self) -> str:

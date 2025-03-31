@@ -894,4 +894,144 @@ class MemoryManager:
             memory_type=memory_type,
             importance=importance,
             metadata=metadata
-        ) 
+        )
+    
+    def search_memories(
+        self,
+        query: str,
+        memory_type: Optional[str] = None,
+        limit: int = 5,
+        threshold: float = 0.0,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> List[MemoryItem]:
+        """
+        Buscar memorias usando búsqueda semántica (vectorial) si está disponible.
+        
+        Args:
+            query: Consulta de búsqueda
+            memory_type: Tipo de memoria a buscar (opcional)
+            limit: Número máximo de resultados
+            threshold: Umbral mínimo de similitud
+            metadata: Filtrado adicional por metadatos
+            
+        Returns:
+            Lista de memorias encontradas
+        """
+        # Verificar si tenemos embedder para búsqueda semántica
+        if self.embedder:
+            try:
+                # Preparar un filtro para las memorias
+                def memory_filter(memory):
+                    # Filtrar por tipo de memoria si se especifica
+                    if memory_type and memory.memory_type != memory_type:
+                        return False
+                    
+                    # Filtrar por metadatos si se especifican
+                    if metadata:
+                        for key, value in metadata.items():
+                            if key not in memory.metadata or memory.metadata[key] != value:
+                                return False
+                    
+                    # Si pasa todos los filtros
+                    return True
+                
+                # Obtener todas las memorias que cumplen con el filtro base
+                all_memories = self.memory_system.get_all_memories()
+                filtered_memories = [m for m in all_memories if memory_filter(m)]
+                
+                # Realizar búsqueda semántica si hay embedder
+                results = self.embedder.find_similar_memories(
+                    query=query,
+                    memories=filtered_memories,
+                    top_k=limit,
+                    threshold=threshold
+                )
+                
+                # Extraer solo las memorias (sin puntuaciones)
+                return [memory for memory, _ in results]
+            except Exception as e:
+                logger.error(f"Error en búsqueda semántica: {e}")
+                # Caer al método de búsqueda por palabras clave
+        
+        # Si no hay embedder o falla la búsqueda semántica, usar búsqueda por palabras clave
+        return self.search_memories_by_keyword(
+            keywords=query.split(),
+            memory_type=memory_type,
+            limit=limit,
+            metadata=metadata
+        )
+    
+    def search_memories_by_keyword(
+        self,
+        keywords: List[str],
+        memory_type: Optional[str] = None,
+        limit: int = 5,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> List[MemoryItem]:
+        """
+        Buscar memorias por palabras clave.
+        
+        Args:
+            keywords: Lista de palabras clave
+            memory_type: Tipo de memoria a buscar
+            limit: Número máximo de resultados
+            metadata: Filtrado adicional por metadatos
+            
+        Returns:
+            Lista de memorias encontradas
+        """
+        # Normalizar palabras clave
+        normalized_keywords = [k.lower() for k in keywords if k.strip()]
+        
+        if not normalized_keywords:
+            return []
+        
+        # Preparar filtro de metadatos completo
+        full_metadata = {}
+        if metadata:
+            full_metadata.update(metadata)
+        
+        # Realizar la consulta usando query_memories
+        all_memories = self.memory_system.get_all_memories()
+        
+        # Filtrar por metadatos y tipo si es necesario
+        filtered_memories = []
+        for memory in all_memories:
+            # Filtrar por tipo de memoria
+            if memory_type and memory.memory_type != memory_type:
+                continue
+                
+            # Filtrar por metadatos
+            if metadata:
+                match = True
+                for key, value in metadata.items():
+                    if key not in memory.metadata or memory.metadata[key] != value:
+                        match = False
+                        break
+                if not match:
+                    continue
+            
+            # Agregar a la lista filtrada
+            filtered_memories.append(memory)
+        
+        # Buscar por palabras clave en el contenido
+        scored_memories = []
+        for memory in filtered_memories:
+            # Convertir contenido a texto
+            if isinstance(memory.content, str):
+                content_text = memory.content.lower()
+            else:
+                content_text = str(memory.content).lower()
+            
+            # Calcular puntuación simple: número de palabras clave encontradas
+            score = sum(1 for keyword in normalized_keywords if keyword in content_text)
+            
+            # Si al menos una palabra clave coincide, agregar a resultados
+            if score > 0:
+                scored_memories.append((memory, score))
+        
+        # Ordenar por puntuación (más coincidencias primero)
+        scored_memories.sort(key=lambda x: x[1], reverse=True)
+        
+        # Devolver solo las memorias, limitadas según parámetro
+        return [memory for memory, _ in scored_memories[:limit]] 

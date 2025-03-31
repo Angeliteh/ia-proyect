@@ -9,9 +9,23 @@ import logging
 import numpy as np
 from typing import List, Dict, Any, Optional, Callable, Union, Tuple
 
+# Importar Sentence Transformers para embeddings avanzados
+try:
+    from sentence_transformers import SentenceTransformer
+    SENTENCE_TRANSFORMERS_AVAILABLE = True
+except ImportError:
+    SENTENCE_TRANSFORMERS_AVAILABLE = False
+    logging.getLogger(__name__).warning(
+        "sentence-transformers no está instalado. Se usará embedding simple. "
+        "Para mejor rendimiento, instale con: pip install sentence-transformers"
+    )
+
 from ..core.memory_item import MemoryItem
 
 logger = logging.getLogger(__name__)
+
+# Singleton para el modelo (para no cargarlo cada vez)
+_model_cache = {}
 
 
 class MemoryEmbedder:
@@ -82,6 +96,13 @@ class MemoryEmbedder:
         text = self.get_text_for_embedding(memory)
         
         try:
+            # Verificar si la función de embedding es asíncrona
+            import inspect
+            if inspect.iscoroutinefunction(self.embedding_function):
+                logger.warning("La función de embedding es asíncrona, pero se está llamando sincrónicamente. Usando simple_embedding como alternativa.")
+                return self._simple_embedding(text)
+            
+            # Función normal síncrona
             embedding = self.embedding_function(text)
             logger.debug(f"Generated embedding for memory {memory.id}")
             return embedding
@@ -115,7 +136,7 @@ class MemoryEmbedder:
         embedding2: List[float]
     ) -> float:
         """
-        Calculate cosine similarity between two embeddings.
+        Calculate cosine similarity between two embeddings with improved precision.
         
         Args:
             embedding1: First embedding vector
@@ -128,19 +149,29 @@ class MemoryEmbedder:
         vec1 = np.array(embedding1)
         vec2 = np.array(embedding2)
         
-        # Calculate cosine similarity
-        dot_product = np.dot(vec1, vec2)
+        # Check for zero vectors
         norm1 = np.linalg.norm(vec1)
         norm2 = np.linalg.norm(vec2)
         
         # Handle zero vectors
-        if norm1 == 0 or norm2 == 0:
+        if norm1 < 1e-10 or norm2 < 1e-10:
             return 0.0
-            
-        similarity = dot_product / (norm1 * norm2)
+        
+        # Normalize vectors before computing similarity (unit vectors)
+        vec1_norm = vec1 / norm1
+        vec2_norm = vec2 / norm2
+        
+        # Calculate cosine similarity with normalized vectors
+        # This is more numerically stable
+        dot_product = np.dot(vec1_norm, vec2_norm)
+        
+        # Apply slight non-linearity to emphasize higher similarity values
+        # This helps distinguish between highly similar items
+        if dot_product > 0:
+            dot_product = dot_product ** 0.9  # Slight power transformation
         
         # Ensure the result is between 0 and 1
-        similarity = max(0.0, min(1.0, float(similarity)))
+        similarity = max(0.0, min(1.0, float(dot_product)))
         
         return similarity
     
@@ -165,7 +196,14 @@ class MemoryEmbedder:
         """
         # Get the query embedding
         if isinstance(query, str):
-            query_embedding = self.embedding_function(query)
+            # Obtener el embedding dependiendo de si la función es asíncrona o no
+            import inspect
+            if inspect.iscoroutinefunction(self.embedding_function):
+                logger.warning("La función de embedding es asíncrona, pero se está llamando sincrónicamente. Usando simple_embedding como alternativa.")
+                # Usar una función de embedding simple en su lugar
+                query_embedding = self._simple_embedding(query)
+            else:
+                query_embedding = self.embedding_function(query)
         elif isinstance(query, MemoryItem):
             query_embedding = self.generate_embedding(query)
         else:
@@ -189,6 +227,110 @@ class MemoryEmbedder:
         # Sort by similarity (highest first) and limit to top_k
         results.sort(key=lambda x: x[1], reverse=True)
         return results[:top_k]
+    
+    def _simple_embedding(self, text: str) -> List[float]:
+        """
+        Genera embeddings utilizando Sentence Transformers o fallback a método simple.
+        
+        Args:
+            text: Texto para generar embedding
+            
+        Returns:
+            Vector de embedding
+        """
+        # Intentar usar Sentence Transformers si está disponible
+        if SENTENCE_TRANSFORMERS_AVAILABLE:
+            try:
+                # Obtener o cargar el modelo
+                if 'model' not in _model_cache:
+                    logger.info("Cargando modelo Sentence Transformer...")
+                    _model_cache['model'] = SentenceTransformer('sentence-transformers/all-mpnet-base-v2')
+                    
+                model = _model_cache['model']
+                
+                # Generar embedding
+                embedding = model.encode(text)
+                return embedding.tolist()  # Convertir a lista para serialización
+            except Exception as e:
+                logger.error(f"Error generando embedding con Sentence Transformers: {e}")
+                # Fallback al embedding simple original si hay error
+                logger.info("Usando embedding fallback por error")
+                return self._fallback_embedding(text)
+        else:
+            # Si Sentence Transformers no está disponible, usar el método fallback
+            logger.debug("Usando embedding fallback")
+            return self._fallback_embedding(text)
+    
+    def _fallback_embedding(self, text: str) -> List[float]:
+        """
+        Método de embedding fallback que no requiere dependencias externas.
+        
+        Esta función se usa como alternativa cuando Sentence Transformers no está disponible,
+        o cuando hay un error en la generación del embedding principal.
+        
+        Args:
+            text: Texto para generar embedding
+            
+        Returns:
+            Vector de embedding
+        """
+        import hashlib
+        import re
+        from collections import Counter
+        
+        # Limpiar y normalizar el texto
+        text = text.lower()
+        
+        # Eliminar puntuación y caracteres especiales
+        text = re.sub(r'[^\w\s]', ' ', text)
+        
+        # Eliminar números
+        text = re.sub(r'\d+', ' ', text)
+        
+        # Eliminar espacios extras
+        text = re.sub(r'\s+', ' ', text).strip()
+        
+        # Lista de palabras vacías en español e inglés (stopwords)
+        stopwords = {'a', 'al', 'algo', 'algunas', 'algunos', 'ante', 'antes', 'como', 'con', 'contra',
+                     'cual', 'cuando', 'de', 'del', 'desde', 'donde', 'durante', 'e', 'el', 'ella',
+                     'ellas', 'ellos', 'en', 'entre', 'era', 'erais', 'eran', 'eras', 'eres', 'es',
+                     'and', 'the', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'of', 'by', 'with'}
+        
+        # Dividir en palabras
+        words = text.split()
+        # Filtrar palabras vacías
+        words = [w for w in words if w not in stopwords and len(w) > 2]
+        
+        # Contar frecuencia de palabras
+        word_counts = Counter(words)
+        
+        # Crear un vector con la dimensión correcta
+        embedding = [0.0] * self.embedding_dim
+        
+        # Rellenar el vector con valores basados en las palabras
+        for word, count in word_counts.items():
+            # Crear un hash determinista para la palabra
+            hash_obj = hashlib.md5(word.encode())
+            hash_val = int(hash_obj.hexdigest(), 16)
+            
+            # Usar el hash para determinar qué dimensiones se afectan
+            dim_index = hash_val % self.embedding_dim
+            
+            # Valor a asignar basado en frecuencia de la palabra
+            value = min(1.0, count / 10)  # Limitar a 1.0
+            
+            # Aplicar una función de decaimiento para valores más distantes
+            for i in range(10):  # Afectar 10 dimensiones cercanas
+                pos = (dim_index + i) % self.embedding_dim
+                decay = 0.8 ** i  # Función de decaimiento exponencial
+                embedding[pos] += value * decay
+        
+        # Normalizar el vector (si no es vector cero)
+        norm = np.linalg.norm(embedding)
+        if norm > 1e-10:
+            embedding = [x / norm for x in embedding]
+        
+        return embedding
     
     def process_memories(self, memories: List[MemoryItem]) -> None:
         """

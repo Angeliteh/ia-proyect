@@ -24,6 +24,7 @@ structure:
     - "mcp_servers"      # Servidores MCP para exponer datos
       - "brave_search"   # Servidor MCP para Brave Search API
       - "filesystem"     # Servidor MCP para sistema de archivos
+      - "memory"         # Servidor MCP para el sistema de memoria
       - "echo"           # Servidor MCP de prueba (echo)
     - "mcp_clients"      # Clientes MCP para conectar con servidores
       - "direct"         # Cliente MCP para conexión directa (in-memory)
@@ -39,6 +40,7 @@ structure:
       - "specialized"    # Agentes especializados como CodeAgent y SystemAgent
         # code_agent.py - Agente especializado en código
         # system_agent.py - Agente para interactuar con el sistema
+        # memory_agent.py - Agente especializado en gestión de memoria semántica
       - "test"           # Agentes de prueba como TestSenderAgent, EchoAgent
         # echo_agent.py - Agente de eco para pruebas
         # test_sender.py - Agente para verificar comunicación
@@ -48,6 +50,8 @@ structure:
       - "core"           # Núcleo del sistema de memoria
       - "storage"        # Backends de almacenamiento (sqlite, redis, etc.)
       - "processors"     # Procesadores para resumir y vectorizar recuerdos
+        # embedder.py - Generador de embeddings vectoriales para búsqueda semántica
+        # summarizer.py - Generador de resúmenes de memorias
       - "types"          # Tipos especializados de memoria (corto/largo plazo)
     - "models"           # Gestores de modelos de IA
       - "core"           # Núcleo del sistema de modelos (ModelManager, ResourceDetector)
@@ -241,6 +245,7 @@ mcp:
     - "database"        # Bases de datos
     - "system"          # Información del sistema
     - "memory"          # Sistema de memoria
+    - "vector"          # Búsqueda vectorial/semántica
   connectors:
     - "filesystem"      # Conector al sistema de archivos
     - "web_search"      # Conector para búsqueda web

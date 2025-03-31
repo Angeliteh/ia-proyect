@@ -1,55 +1,68 @@
-# Ejemplos de MCP
+# Ejemplos de MCP (Model Context Protocol)
 
-Este directorio contiene ejemplos de uso del protocolo MCP (Model Context Protocol).
+Este directorio contiene ejemplos prácticos de uso del protocolo MCP (Model Context Protocol) con diferentes servidores y clientes.
 
-## Ejemplos disponibles
+## Ejemplos Disponibles
 
-### `mcp_core_example.py`
+### Core MCP
 
-Ejemplo básico que muestra el funcionamiento del núcleo de MCP utilizando un cliente directo y un servidor de eco.
+- **mcp_core_example.py**: Ejemplo básico de la arquitectura cliente-servidor MCP con un servidor Echo
+- **http_transport_example.py**: Demostración de comunicación MCP a través de HTTP
 
-```bash
-python examples/mcp/mcp_core_example.py
+### Servidores MCP
+
+- **filesystem_example.py**: Ejemplo de uso del servidor de sistema de archivos
+- **sqlite_mcp_example.py**: Ejemplo de servidor SQLite para persistencia de datos
+- **memory_example.py**: Ejemplo básico del servidor de memoria
+- **memory_semantic_example.py**: Ejemplo avanzado de búsqueda semántica con el servidor de memoria
+
+## Servidores Destacados
+
+### Servidor SQLite
+
+El ejemplo `sqlite_mcp_example.py` demuestra cómo el MCP puede interactuar con bases de datos SQLite:
+- Conexión a base de datos
+- Creación de tablas
+- Operaciones CRUD
+- Consultas SQL
+
+### Servidor de Memoria Semántica
+
+El ejemplo `memory_semantic_example.py` muestra las capacidades avanzadas de búsqueda semántica:
+- Generación de embeddings para memorias
+- Búsqueda por palabras clave vs. búsqueda semántica
+- Implementación de un agente con memoria semántica
+- Integración con sentence-transformers (si está disponible)
+
+## Requisitos Adicionales
+
+Algunos ejemplos pueden requerir bibliotecas adicionales:
+
+```
+pip install sentence-transformers  # Para memory_semantic_example.py
 ```
 
-### `http_transport_example.py`
+## Ejecución de Ejemplos
 
-Ejemplo que demuestra cómo usar HTTP como transporte para MCP. Incluye:
-- Implementación de un servidor web simple con aiohttp
-- Exposición de un servidor MCP (EchoServer) a través de HTTP
-- Uso de HttpClient para conectarse al servidor
-- Envío de mensajes MCP a través de HTTP
+Para ejecutar un ejemplo específico:
 
 ```bash
-python examples/mcp/http_transport_example.py
+# Desde la raíz del proyecto
+python examples/mcp/memory_semantic_example.py
 ```
 
-### `http_server_example.py`
+## Estructura de Directorio
 
-Ejemplo más completo de un servidor HTTP para MCP, que incluye:
-- Configuración avanzada de un servidor HTTP
-- Registro de múltiples servidores MCP
-- Cliente HTTP que interactúa con múltiples servidores MCP
-- Operaciones sobre el sistema de archivos
-
-```bash
-python examples/mcp/http_server_example.py
 ```
-
-### `sqlite_mcp_example.py`
-
-Ejemplo de un servidor MCP basado en SQLite para almacenamiento persistente.
-
-```bash
-python examples/mcp/sqlite_mcp_example.py
-```
-
-### `nuevo/direct_usage_example.py`
-
-Ejemplo simplificado que muestra cómo usar el cliente directo para conectarse a un servidor de eco.
-
-```bash
-python examples/mcp/nuevo/direct_usage_example.py
+examples/mcp/
+├── data/                # Datos temporales generados por los ejemplos
+├── mcp_core_example.py  # Ejemplo básico de MCP
+├── http_transport_example.py  # Ejemplo de transporte HTTP
+├── filesystem_example.py  # Ejemplo de sistema de archivos
+├── sqlite_mcp_example.py  # Ejemplo de servidor SQLite
+├── memory_example.py    # Ejemplo básico de memoria
+├── memory_semantic_example.py  # Ejemplo de búsqueda semántica
+└── README.md            # Este archivo
 ```
 
 ## Estructura de ejemplos
