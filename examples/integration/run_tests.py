@@ -223,6 +223,99 @@ TEST_CONFIG = {
             }
         }
     },
+    # Nuevas pruebas para MainAssistant
+    "main_assistant": {
+        "basic": {
+            "module": "main_assistant_example.py",
+            "dir": "../agents/main_assistant",
+            "args": "--test direct",
+            "expected_result": 0,
+            "description": "Prueba básica del MainAssistant respondiendo directamente",
+            "dependencies": {
+                "packages": [],
+                "files": [],
+                "env_vars": []
+            }
+        },
+        "delegation": {
+            "module": "main_assistant_example.py",
+            "dir": "../agents/main_assistant",
+            "args": "--test all",
+            "expected_result": 0,
+            "description": "Prueba completa de delegación del MainAssistant a agentes especializados",
+            "dependencies": {
+                "packages": ["google.generativeai"],
+                "files": [],
+                "env_vars": ["GOOGLE_API_KEY"]
+            }
+        }
+    },
+    # Nuevas pruebas para TTS
+    "tts": {
+        "basic": {
+            "module": "tts_echo_test.py",
+            "dir": "../tts",
+            "args": "--query 'Prueba de texto a voz' --no-play",
+            "expected_result": 0,
+            "description": "Prueba básica del sistema TTS con EchoAgent",
+            "dependencies": {
+                "packages": ["gtts", "pygame"],
+                "files": [],
+                "env_vars": []
+            }
+        },
+        "voice_list": {
+            "module": "tts_echo_test.py",
+            "dir": "../tts",
+            "args": "--list-voices --no-play",
+            "expected_result": 0,
+            "description": "Listar voces disponibles en el sistema TTS",
+            "dependencies": {
+                "packages": ["gtts"],
+                "files": [],
+                "env_vars": []
+            }
+        },
+        "cache": {
+            "module": "tts_echo_test.py",
+            "dir": "../tts",
+            "args": "--query 'Prueba de caché de TTS' --check-cache --no-play",
+            "expected_result": 0,
+            "description": "Prueba del sistema de caché de TTS",
+            "dependencies": {
+                "packages": ["gtts", "pygame"],
+                "files": [],
+                "env_vars": []
+            }
+        }
+    },
+    # Pruebas de manejo de errores
+    "error_handling": {
+        "agent_unavailable": {
+            "module": "error_tests.py",
+            "dir": "../error_handling",
+            "args": "--test agent_unavailable",
+            "expected_result": 0,
+            "description": "Test de manejo de error cuando un agente no está disponible",
+            "dependencies": {
+                "packages": [],
+                "files": [],
+                "env_vars": []
+            }
+        },
+        "invalid_request": {
+            "module": "error_tests.py",
+            "dir": "../error_handling",
+            "args": "--test invalid_request",
+            "expected_result": 0,
+            "description": "Test de manejo de solicitudes inválidas",
+            "dependencies": {
+                "packages": [],
+                "files": [],
+                "env_vars": []
+            }
+        }
+    },
     "models": {
         "manager": {
             "module": "model_manager_example.py",
@@ -330,6 +423,39 @@ TEST_WORKFLOWS = {
             "agents:code",     # Probar agente de código
             "agents:system",   # Probar agente de sistema
             "agents:orchestrator"  # Probar el orquestador
+        ]
+    },
+    # Nuevo workflow para MainAssistant con TTS
+    "vio_basic_workflow": {
+        "description": "Flujo de trabajo básico de V.I.O. (antes MainAssistant) con TTS",
+        "steps": [
+            {"test": "tts:basic", "id": "tts_ready"},
+            {"test": "main_assistant:basic", "depends_on": "tts_ready", "id": "main_assistant_basic"},
+            {"test": "tts:voice_list", "depends_on": "tts_ready"}
+        ]
+    },
+    # Workflow completo para V.I.O.
+    "vio_full_workflow": {
+        "description": "Flujo de trabajo completo de V.I.O. con todos los componentes",
+        "steps": [
+            {"test": "models:manager", "id": "model_ready"},
+            {"test": "tts:basic", "id": "tts_ready"},
+            {"test": "agents:echo", "id": "echo_ready"},
+            {"test": "agents:code", "depends_on": "model_ready", "id": "code_ready"},
+            {"test": "agents:system", "id": "system_ready"},
+            {"test": "agents:orchestrator", "depends_on": ["echo_ready", "code_ready", "system_ready"], "id": "orchestrator_ready"},
+            {"test": "main_assistant:delegation", "depends_on": ["tts_ready", "orchestrator_ready"]}
+        ]
+    },
+    # Workflow para probar el manejo de errores
+    "error_handling_workflow": {
+        "description": "Flujo de trabajo que prueba el manejo de errores y la robustez del sistema",
+        "steps": [
+            {"test": "tts:basic", "id": "tts_ready"},
+            {"test": "agents:echo", "id": "echo_ready"},
+            {"test": "error_handling:agent_unavailable", "depends_on": ["tts_ready", "echo_ready"], "id": "agent_unavailable_test"},
+            {"test": "error_handling:invalid_request", "depends_on": ["tts_ready", "echo_ready"], "id": "invalid_request_test"},
+            {"test": "main_assistant:basic", "depends_on": ["agent_unavailable_test", "invalid_request_test"], "id": "main_assistant_after_errors"}
         ]
     }
 }

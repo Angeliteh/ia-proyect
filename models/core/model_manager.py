@@ -2,49 +2,24 @@
 Gestor de modelos de IA.
 
 Este módulo proporciona clases para gestionar modelos de IA,
-tanto locales como en la nube.
+tanto locales como en la nube, con detección de recursos y sistema de fallback.
 """
 
 import os
 import json
 import logging
-import uuid
-from abc import ABC, abstractmethod
+from typing import Dict, List, Any, Optional, Tuple, Union, AsyncGenerator
 from enum import Enum
-from typing import Dict, List, Any, Optional, Union, Callable, Tuple, AsyncGenerator
 
 # Importar detector de recursos
 from .resource_detector import ResourceDetector
 
 class ModelType(str, Enum):
     """Tipos de modelos disponibles."""
-    
-    # Modelos locales
     LLAMA = "llama"
     MISTRAL = "mistral"
-    PHI = "phi"
-    
-    # Modelos en la nube
-    OPENAI = "openai"
     ANTHROPIC = "anthropic"
     GEMINI = "gemini"
-
-class QuantizationLevel(str, Enum):
-    """Niveles de cuantización para modelos locales."""
-    
-    # Sin cuantización (float16/float32)
-    NONE = "none"  # float16/float32
-    
-    # GGUF (llama.cpp)
-    Q8_0 = "q8_0"    # 8-bit (buena calidad)
-    Q6_K = "q6_k"    # 6-bit
-    Q5_K = "q5_k"    # 5-bit
-    Q4_K_M = "q4_k_m"  # 4-bit (equilibrio calidad/tamaño)
-    Q3_K_M = "q3_k_m"  # 3-bit (menor tamaño)
-    
-    # GPTQ (GPU optimizado)
-    GPTQ_8BIT = "gptq_8bit"
-    GPTQ_4BIT = "gptq_4bit"
 
 class ModelInfo:
     """
@@ -53,12 +28,11 @@ class ModelInfo:
     Attributes:
         name: Nombre del modelo
         model_type: Tipo de modelo
+        local: Si es un modelo local o en la nube
         path: Ruta al archivo del modelo (solo para modelos locales)
-        api_key_env: Nombre de la variable de entorno con la API key (modelos en la nube)
+        api_key_env: Variable de entorno con la API key (modelos en la nube)
         context_length: Longitud máxima de contexto soportada
-        quantization: Nivel de cuantización (para modelos locales)
         size_gb: Tamaño aproximado del modelo en GB
-        parameters: Número de parámetros del modelo en miles de millones
     """
     
     def __init__(
@@ -69,45 +43,15 @@ class ModelInfo:
         path: Optional[str] = None,
         api_key_env: Optional[str] = None,
         context_length: int = 4096,
-        quantization: Union[QuantizationLevel, str] = QuantizationLevel.NONE,
-        size_gb: Optional[float] = None,
-        parameters: Optional[float] = None
+        size_gb: Optional[float] = None
     ):
-        """
-        Inicializa la información del modelo.
-        
-        Args:
-            name: Nombre del modelo
-            model_type: Tipo de modelo
-            local: Si es un modelo local o en la nube
-            path: Ruta al archivo del modelo (solo para modelos locales)
-            api_key_env: Variable de entorno con la API key (modelos en la nube)
-            context_length: Longitud máxima de contexto soportada
-            quantization: Nivel de cuantización (para modelos locales)
-            size_gb: Tamaño aproximado del modelo en GB
-            parameters: Número de parámetros del modelo en miles de millones
-        """
         self.name = name
         self.model_type = model_type if isinstance(model_type, str) else model_type.value
         self.local = local
         self.path = path
         self.api_key_env = api_key_env
         self.context_length = context_length
-        self.quantization = quantization if isinstance(quantization, str) else quantization.value
         self.size_gb = size_gb
-        self.parameters = parameters
-        
-        # Estimar tamaño si no se proporciona
-        if self.size_gb is None and self.parameters is not None:
-            # Estimación muy aproximada basada en parámetros y cuantización
-            if self.quantization == QuantizationLevel.NONE.value:
-                self.size_gb = self.parameters * 2  # ~2GB por mil millones de parámetros en FP16
-            elif self.quantization in [QuantizationLevel.Q8_0.value]:
-                self.size_gb = self.parameters * 1  # ~1GB por mil millones en 8-bit
-            elif self.quantization in [QuantizationLevel.Q4_K_M.value]:
-                self.size_gb = self.parameters * 0.5  # ~0.5GB por mil millones en 4-bit
-            else:
-                self.size_gb = self.parameters * 0.75  # Estimación genérica
     
     def to_dict(self) -> Dict[str, Any]:
         """Convierte la información del modelo a un diccionario."""
@@ -118,22 +62,12 @@ class ModelInfo:
             "path": self.path,
             "api_key_env": self.api_key_env,
             "context_length": self.context_length,
-            "quantization": self.quantization,
-            "size_gb": self.size_gb,
-            "parameters": self.parameters
+            "size_gb": self.size_gb
         }
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'ModelInfo':
-        """
-        Crea una instancia desde un diccionario.
-        
-        Args:
-            data: Diccionario con información del modelo
-            
-        Returns:
-            Instancia de ModelInfo
-        """
+        """Crea una instancia desde un diccionario."""
         return cls(
             name=data["name"],
             model_type=data["model_type"],
@@ -141,9 +75,7 @@ class ModelInfo:
             path=data.get("path"),
             api_key_env=data.get("api_key_env"),
             context_length=data.get("context_length", 4096),
-            quantization=data.get("quantization", QuantizationLevel.NONE.value),
-            size_gb=data.get("size_gb"),
-            parameters=data.get("parameters")
+            size_gb=data.get("size_gb")
         )
 
 class ModelOutput:
@@ -153,53 +85,28 @@ class ModelOutput:
     Attributes:
         text: Texto generado por el modelo
         tokens: Número de tokens generados
-        metadata: Metadatos adicionales específicos del modelo
+        metadata: Metadatos adicionales (opcional)
     """
     
-    def __init__(
-        self, 
-        text: str, 
-        tokens: int = 0, 
-        metadata: Optional[Dict[str, Any]] = None
-    ):
-        """
-        Inicializa la salida del modelo.
-        
-        Args:
-            text: Texto generado por el modelo
-            tokens: Número de tokens generados
-            metadata: Metadatos adicionales
-        """
+    def __init__(self, text: str, tokens: int = 0, metadata: Optional[Dict[str, Any]] = None):
         self.text = text
         self.tokens = tokens
         self.metadata = metadata or {}
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convierte la salida a un diccionario."""
-        return {
-            "text": self.text,
-            "tokens": self.tokens,
-            "metadata": self.metadata
-        }
 
-class ModelInterface(ABC):
+class ModelInterface:
     """
-    Interfaz abstracta para modelos de IA.
+    Interfaz base para modelos de IA.
     
     Esta interfaz define los métodos que deben implementar
     todos los modelos, tanto locales como en la nube.
     """
     
-    @abstractmethod
     async def generate(
         self, 
         prompt: str,
         max_tokens: int = 1024,
-        temperature: float = 0.7,
-        top_p: float = 0.9,
-        stream: bool = False,
-        stop_sequences: Optional[List[str]] = None
-    ) -> Union[ModelOutput, AsyncGenerator[ModelOutput, None]]:
+        temperature: float = 0.7
+    ) -> ModelOutput:
         """
         Genera texto a partir de un prompt.
         
@@ -207,53 +114,32 @@ class ModelInterface(ABC):
             prompt: Texto de entrada para el modelo
             max_tokens: Número máximo de tokens a generar
             temperature: Temperatura para la generación (aleatoriedad)
-            top_p: Valor de top-p para muestreo nucleus
-            stream: Si se debe devolver la salida en streaming
-            stop_sequences: Secuencias que detienen la generación
             
         Returns:
-            Salida del modelo o generador asíncrono si stream=True
+            Salida del modelo
         """
-        pass
+        raise NotImplementedError("Los modelos deben implementar generate()")
     
-    @abstractmethod
-    def tokenize(self, text: str) -> List[int]:
+    async def generate_stream(
+        self,
+        prompt: str,
+        max_tokens: int = 1024,
+        temperature: float = 0.7
+    ) -> AsyncGenerator[str, None]:
         """
-        Tokeniza un texto.
+        Genera texto en tiempo real, devolviendo chunks a medida que se generan.
         
         Args:
-            text: Texto a tokenizar
+            prompt: Texto de entrada para el modelo
+            max_tokens: Número máximo de tokens a generar
+            temperature: Temperatura para la generación (aleatoriedad)
             
-        Returns:
-            Lista de tokens (IDs de token)
+        Yields:
+            Chunks de texto generados
         """
-        pass
-    
-    @abstractmethod
-    def count_tokens(self, text: str) -> int:
-        """
-        Cuenta los tokens en un texto.
-        
-        Args:
-            text: Texto para contar tokens
-            
-        Returns:
-            Número de tokens
-        """
-        pass
-    
-    @abstractmethod
-    async def embed(self, text: str) -> List[float]:
-        """
-        Genera embeddings para un texto.
-        
-        Args:
-            text: Texto a procesar
-            
-        Returns:
-            Vector de embeddings
-        """
-        pass
+        # Por defecto, si no se implementa streaming, se usa generate()
+        response = await self.generate(prompt, max_tokens, temperature)
+        yield response.text
 
 class ModelManager:
     """
@@ -261,12 +147,6 @@ class ModelManager:
     
     Esta clase gestiona la carga, uso y liberación de modelos de IA,
     tanto locales como en la nube, optimizando el uso de recursos.
-    
-    Attributes:
-        models_info: Información sobre los modelos disponibles
-        loaded_models: Modelos actualmente cargados en memoria
-        resource_detector: Detector de recursos del sistema
-        logger: Logger para esta clase
     """
     
     def __init__(self, config_path: Optional[str] = None):
@@ -283,6 +163,13 @@ class ModelManager:
         self.models_info: Dict[str, ModelInfo] = {}
         self.loaded_models: Dict[str, Tuple[ModelInterface, ModelInfo]] = {}
         
+        # Mapeo de tipos de modelo a sus implementaciones
+        self.model_implementations = {
+            ModelType.MISTRAL.value: "models.local.llama_cpp_model.LlamaCppModel",
+            ModelType.GEMINI.value: "models.cloud.gemini_model.GeminiModel",
+            ModelType.LLAMA.value: "models.local.llama_cpp_model.LlamaCppModel"
+        }
+        
         # Cargar configuración de modelos
         if config_path and os.path.exists(config_path):
             self._load_config(config_path)
@@ -292,12 +179,7 @@ class ModelManager:
         self.logger.info(f"Gestor de modelos inicializado con {len(self.models_info)} modelos configurados")
     
     def _load_config(self, config_path: str):
-        """
-        Carga la configuración de modelos desde un archivo.
-        
-        Args:
-            config_path: Ruta al archivo de configuración
-        """
+        """Carga la configuración de modelos desde un archivo."""
         try:
             with open(config_path, 'r') as f:
                 config = json.load(f)
@@ -314,51 +196,35 @@ class ModelManager:
     def _load_default_models(self):
         """
         Carga una configuración mínima predeterminada de modelos locales y en la nube.
-        
-        Se utiliza cuando no se proporciona un archivo JSON de configuración.
         """
         self.logger.warning("Cargando configuración predeterminada de modelos...")
         
-        # Modelos locales predeterminados (requieren descarga)
+        # Modelos locales predeterminados
         local_models = [
             ModelInfo(
-                name="phi-2",
-                model_type=ModelType.PHI,
+                name="mistral-7b-instruct",
+                model_type=ModelType.MISTRAL,
                 local=True,
-                path="models/local/phi-2.Q4_K_M.gguf",
-                context_length=2048,
-                parameters=2.7
+                path="models/local/mistral-7b-instruct.Q4_K_M.gguf",
+                context_length=32768,
+                size_gb=4.0
             )
         ]
         
-        # Modelos en la nube predeterminados (reducidos para evitar problemas de límites)
+        # Modelos en la nube predeterminados
         cloud_models = [
             ModelInfo(
-                name="gpt-3.5-turbo-16k",  # Modelo con mayor límite de requests
-                model_type=ModelType.OPENAI,
+                name="gemini-2.0-flash",
+                model_type=ModelType.GEMINI,
                 local=False,
-                api_key_env="OPENAI_API_KEY",
-                context_length=16385,
-                parameters=None
-            ),
-            ModelInfo(
-                name="claude-3-haiku-20240307",  # Modelo más económico de Anthropic (sustituye a claude-instant-1)
-                model_type=ModelType.ANTHROPIC,
-                local=False,
-                api_key_env="ANTHROPIC_API_KEY",
-                context_length=100000,
-                parameters=None
+                api_key_env="GOOGLE_API_KEY",
+                context_length=32768
             )
         ]
         
         # Registrar modelos
         for model in local_models + cloud_models:
             self.models_info[model.name] = model
-        
-        self.logger.warning(
-            "Usando configuración predeterminada mínima. "
-            "Para una configuración completa, proporciona un archivo JSON de configuración."
-        )
     
     async def load_model(
         self, 
@@ -374,9 +240,6 @@ class ModelManager:
             
         Returns:
             Tupla (instancia del modelo, información del modelo)
-            
-        Raises:
-            ValueError: Si el modelo no existe o no se puede cargar
         """
         if model_name in self.loaded_models:
             self.logger.info(f"Modelo '{model_name}' ya está cargado")
@@ -389,42 +252,25 @@ class ModelManager:
         self.logger.info(f"Cargando modelo '{model_name}' ({model_info.model_type})")
         
         try:
+            # Obtener la implementación del modelo
+            implementation_path = self.model_implementations.get(model_info.model_type)
+            if not implementation_path:
+                raise ValueError(f"No hay implementación para el tipo de modelo: {model_info.model_type}")
+            
+            # Importar dinámicamente la implementación
+            module_path, class_name = implementation_path.rsplit('.', 1)
+            module = __import__(module_path, fromlist=[class_name])
+            model_class = getattr(module, class_name)
+            
             # Si es un modelo local, determinar el dispositivo óptimo
             if model_info.local:
-                device = force_device
-                
-                # Si no se fuerza un dispositivo, determinar el óptimo
-                if device is None:
-                    device_info = self.resource_detector.estimate_optimal_device(
-                        model_size_gb=model_info.size_gb or 4.0,  # Valor por defecto si no se especifica
-                        context_length=model_info.context_length
-                    )
-                    
-                    device = device_info["device"]
-                    if "warning" in device_info:
-                        self.logger.warning(
-                            f"Advertencia al cargar '{model_name}': {device_info['warning']}"
-                        )
-                
-                # Cargar modelo local según su tipo
-                if model_info.model_type == ModelType.LLAMA.value:
-                    model = await self._load_llama_model(model_info, device)
-                elif model_info.model_type == ModelType.MISTRAL.value:
-                    model = await self._load_mistral_model(model_info, device)
-                elif model_info.model_type == ModelType.PHI.value:
-                    model = await self._load_phi_model(model_info, device)
-                else:
-                    raise ValueError(f"Tipo de modelo local no soportado: {model_info.model_type}")
+                device = force_device or self.resource_detector.estimate_optimal_device(
+                    model_size_gb=model_info.size_gb or 4.0,
+                    context_length=model_info.context_length
+                )["device"]
+                model = model_class(model_info, device=device)
             else:
-                # Cargar modelo en la nube
-                if model_info.model_type == ModelType.OPENAI.value:
-                    model = await self._load_openai_model(model_info)
-                elif model_info.model_type == ModelType.ANTHROPIC.value:
-                    model = await self._load_anthropic_model(model_info)
-                elif model_info.model_type == ModelType.GEMINI.value:
-                    model = await self._load_gemini_model(model_info)
-                else:
-                    raise ValueError(f"Tipo de modelo en la nube no soportado: {model_info.model_type}")
+                model = model_class(model_info)
             
             self.loaded_models[model_name] = (model, model_info)
             return (model, model_info)
@@ -448,7 +294,6 @@ class ModelManager:
             return False
             
         try:
-            # Eliminar referencias al modelo
             del self.loaded_models[model_name]
             
             # Forzar liberación de memoria en Python
@@ -470,201 +315,17 @@ class ModelManager:
             self.logger.error(f"Error descargando modelo '{model_name}': {e}")
             return False
     
-    def list_available_models(self, local_only: bool = False) -> List[Dict[str, Any]]:
+    def list_available_models(self) -> List[Dict[str, Any]]:
         """
         Lista los modelos disponibles.
         
-        Args:
-            local_only: Si es True, solo lista modelos locales
-            
         Returns:
             Lista de información de modelos disponibles
         """
         models = []
         for name, info in self.models_info.items():
-            if local_only and not info.local:
-                continue
-                
             is_loaded = name in self.loaded_models
-            
             model_data = info.to_dict()
             model_data["is_loaded"] = is_loaded
             models.append(model_data)
-            
-        return models
-    
-    def list_loaded_models(self) -> List[str]:
-        """
-        Lista los modelos actualmente cargados.
-        
-        Returns:
-            Lista de nombres de modelos cargados
-        """
-        return list(self.loaded_models.keys())
-    
-    async def get_model(self, model_name: str) -> ModelInterface:
-        """
-        Obtiene un modelo ya cargado o lo carga si no lo está.
-        
-        Args:
-            model_name: Nombre del modelo
-            
-        Returns:
-            Instancia del modelo
-            
-        Raises:
-            ValueError: Si el modelo no existe o no se puede cargar
-        """
-        if model_name in self.loaded_models:
-            return self.loaded_models[model_name][0]
-            
-        model, _ = await self.load_model(model_name)
-        return model
-    
-    # Métodos auxiliares para cargar modelos específicos
-    async def _load_llama_model(self, model_info: ModelInfo, device: str) -> ModelInterface:
-        """
-        Carga un modelo Llama usando llama.cpp.
-        
-        Args:
-            model_info: Información del modelo
-            device: Dispositivo a utilizar ('cpu' o 'gpu')
-            
-        Returns:
-            Instancia del modelo
-        """
-        try:
-            # Importar dinámicamente para evitar dependencias innecesarias
-            from ..local.llama_cpp_model import LlamaCppModel
-            
-            # Crear instancia
-            model = LlamaCppModel(model_info, device=device)
-            return model
-        except ImportError as e:
-            self.logger.error(f"Error importando LlamaCppModel: {e}")
-            raise ValueError(
-                "No se pudo cargar el modelo Llama. "
-                "Asegúrate de tener instalado llama-cpp-python: pip install llama-cpp-python"
-            )
-    
-    async def _load_mistral_model(self, model_info: ModelInfo, device: str) -> ModelInterface:
-        """
-        Carga un modelo Mistral usando llama.cpp (misma implementación).
-        
-        Args:
-            model_info: Información del modelo
-            device: Dispositivo a utilizar ('cpu' o 'gpu')
-            
-        Returns:
-            Instancia del modelo
-        """
-        # Mistral utiliza la misma implementación que Llama en llama.cpp
-        return await self._load_llama_model(model_info, device)
-    
-    async def _load_phi_model(self, model_info: ModelInfo, device: str) -> ModelInterface:
-        """
-        Carga un modelo Phi usando llama.cpp (misma implementación).
-        
-        Args:
-            model_info: Información del modelo
-            device: Dispositivo a utilizar ('cpu' o 'gpu')
-            
-        Returns:
-            Instancia del modelo
-        """
-        # Phi también puede utilizar la implementación de llama.cpp
-        return await self._load_llama_model(model_info, device)
-    
-    async def _load_openai_model(self, model_info: ModelInfo) -> ModelInterface:
-        """
-        Carga un modelo OpenAI.
-        
-        Args:
-            model_info: Información del modelo
-            
-        Returns:
-            Instancia del modelo
-        """
-        try:
-            # Importar dinámicamente para evitar dependencias innecesarias
-            from ..cloud.openai_model import OpenAIModel
-            
-            # Crear instancia
-            model = OpenAIModel(model_info)
-            return model
-        except ImportError as e:
-            self.logger.error(f"Error importando OpenAIModel: {e}")
-            raise ValueError(
-                "No se pudo cargar el modelo OpenAI. "
-                "Asegúrate de tener instalado httpx: pip install httpx"
-            )
-    
-    async def _load_anthropic_model(self, model_info: ModelInfo) -> ModelInterface:
-        """
-        Carga un modelo Anthropic.
-        
-        Args:
-            model_info: Información del modelo
-            
-        Returns:
-            Instancia del modelo
-        """
-        try:
-            # Importar dinámicamente para evitar dependencias innecesarias
-            from ..cloud.anthropic_model import AnthropicModel
-            
-            # Crear instancia
-            model = AnthropicModel(model_info)
-            return model
-        except ImportError as e:
-            self.logger.error(f"Error importando AnthropicModel: {e}")
-            raise ValueError(
-                "No se pudo cargar el modelo Anthropic. "
-                "Asegúrate de tener instalado httpx: pip install httpx"
-            )
-    
-    async def _load_gemini_model(self, model_info: ModelInfo) -> ModelInterface:
-        """
-        Carga un modelo de Google Gemini.
-        
-        Args:
-            model_info: Información del modelo a cargar
-            
-        Returns:
-            Interfaz del modelo cargado
-            
-        Raises:
-            ImportError: Si no se puede importar la implementación de Gemini
-            ValueError: Si no se puede inicializar el modelo
-        """
-        try:
-            from ..cloud.gemini_model import GeminiModel
-            
-            # Crear instancia del modelo
-            model = GeminiModel(model_info)
-            return model
-        except ImportError as e:
-            raise ImportError(f"No se pudo importar la implementación de Gemini: {str(e)}. "
-                            "Asegúrate de tener instalado google-generativeai: pip install google-generativeai")
-        except Exception as e:
-            raise ValueError(f"Error cargando modelo de Gemini: {str(e)}")
-    
-    def save_config(self, config_path: str):
-        """
-        Guarda la configuración de modelos en un archivo.
-        
-        Args:
-            config_path: Ruta donde guardar la configuración
-        """
-        try:
-            models_data = [model.to_dict() for model in self.models_info.values()]
-            config = {"models": models_data}
-            
-            with open(config_path, 'w') as f:
-                json.dump(config, f, indent=2)
-                
-            self.logger.info(f"Configuración de modelos guardada en {config_path}")
-            return True
-        except Exception as e:
-            self.logger.error(f"Error guardando configuración de modelos: {e}")
-            return False 
+        return models 

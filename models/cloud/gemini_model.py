@@ -103,18 +103,40 @@ class GeminiModel(ModelInterface):
             stop_sequences=stop_sequences
         )
         
-        # Configurar umbral de seguridad (equivalente a moderación)
+        # Configurar umbral de seguridad lo más permisivo posible
         safety_settings = {
-            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
+            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
         }
         
         try:
             if stream:
-                # Generación en modo streaming
-                return self._generate_stream(prompt, generation_config, safety_settings)
+                # Crear un generador que acumule los chunks y los devuelva como ModelOutput
+                async def stream_to_model_output():
+                    text_accumulated = ""
+                    tokens = 0
+                    async for chunk in self.generate_stream(
+                        prompt=prompt,
+                        max_tokens=max_tokens,
+                        temperature=temperature,
+                        top_p=top_p,
+                        stop_sequences=stop_sequences
+                    ):
+                        text_accumulated += chunk
+                        tokens += 1  # Aproximación simple
+                        yield ModelOutput(
+                            text=chunk,
+                            tokens=1,
+                            metadata={
+                                "model": self.model_name,
+                                "accumulated_text": text_accumulated,
+                                "is_complete": False
+                            }
+                        )
+                
+                return stream_to_model_output()
             else:
                 # Generación completa
                 response = await self.model.generate_content_async(
@@ -130,7 +152,7 @@ class GeminiModel(ModelInterface):
                         if hasattr(part, 'text'):
                             generated_text += part.text
                 
-                # Contar tokens (aproximado, ya que Gemini no proporciona esta información directamente)
+                # Contar tokens (aproximado)
                 token_count = len(generated_text.split())
                 
                 # Devolver el resultado
@@ -153,85 +175,63 @@ class GeminiModel(ModelInterface):
             logger.error(error_msg)
             raise ValueError(error_msg)
     
-    async def _generate_stream(
-        self,
+    async def generate_stream(
+        self, 
         prompt: str,
-        generation_config: GenerationConfig,
-        safety_settings: Dict[HarmCategory, HarmBlockThreshold]
-    ) -> AsyncGenerator[ModelOutput, None]:
+        max_tokens: int = 1024,
+        temperature: float = 0.7,
+        top_p: float = 0.9,
+        stop_sequences: Optional[List[str]] = None
+    ) -> AsyncGenerator[str, None]:
         """
-        Genera texto en modo streaming.
+        Genera texto en streaming utilizando el modelo de Gemini.
         
         Args:
             prompt: Texto de entrada para la generación
-            generation_config: Configuración para la generación
-            safety_settings: Configuración de seguridad
+            max_tokens: Número máximo de tokens a generar
+            temperature: Temperatura para la generación
+            top_p: Valor de top_p para la generación
+            stop_sequences: Secuencias de texto que detienen la generación
             
         Yields:
-            ModelOutput con fragmentos de texto generado
+            Fragmentos de texto generados secuencialmente
         """
+        # Configurar parámetros de generación
+        generation_config = GenerationConfig(
+            temperature=temperature,
+            top_p=top_p,
+            max_output_tokens=max_tokens,
+            stop_sequences=stop_sequences
+        )
+        
+        # Configurar umbral de seguridad lo más permisivo posible
+        safety_settings = {
+            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+        }
+        
         try:
-            response_stream = await self.model.generate_content_async(
+            # Generar contenido en streaming
+            response = await self.model.generate_content_async(
                 contents=prompt,
                 generation_config=generation_config,
                 safety_settings=safety_settings,
                 stream=True
             )
             
-            accumulated_text = ""
-            token_count = 0
-            
-            async for chunk in response_stream:
-                if not hasattr(chunk, 'candidates') or not chunk.candidates:
-                    continue
-                
-                chunk_text = ""
-                if chunk.candidates[0].content and chunk.candidates[0].content.parts:
+            # Procesar el stream de respuesta
+            async for chunk in response:
+                if chunk.candidates and chunk.candidates[0].content and chunk.candidates[0].content.parts:
                     for part in chunk.candidates[0].content.parts:
                         if hasattr(part, 'text'):
-                            chunk_text += part.text
-                
-                # Solo emitir chunks con texto
-                if chunk_text:
-                    # Actualizar texto acumulado y contar tokens
-                    accumulated_text += chunk_text
-                    new_token_count = len(chunk_text.split())
-                    token_count += new_token_count
-                    
-                    yield ModelOutput(
-                        text=chunk_text,
-                        tokens=new_token_count,
-                        metadata={
-                            "is_complete": False,
-                            "accumulated_tokens": token_count
-                        }
-                    )
-            
-            # Emitir un chunk final con metadata completos
-            yield ModelOutput(
-                text="",
-                tokens=0,
-                metadata={
-                    "is_complete": True,
-                    "model": self.model_name,
-                    "accumulated_tokens": token_count,
-                    "total_text_length": len(accumulated_text),
-                    "usage": {
-                        "prompt_tokens": len(prompt.split()),
-                        "completion_tokens": token_count,
-                        "total_tokens": len(prompt.split()) + token_count
-                    }
-                }
-            )
-        
+                            yield part.text
+                            
         except Exception as e:
             error_msg = f"Error en streaming con Gemini: {str(e)}"
             logger.error(error_msg)
-            yield ModelOutput(
-                text=f"\n\nError: {error_msg}",
-                tokens=0,
-                metadata={"error": error_msg, "is_complete": True}
-            )
+            raise ValueError(error_msg)
     
     def _get_finish_reason(self, response: AsyncGenerateContentResponse) -> str:
         """

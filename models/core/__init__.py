@@ -11,7 +11,6 @@ from .model_manager import (
     ModelInfo, 
     ModelOutput, 
     ModelType,
-    QuantizationLevel,
     ModelManager
 )
 
@@ -21,6 +20,5 @@ __all__ = [
     "ModelInfo",
     "ModelOutput",
     "ModelType",
-    "QuantizationLevel",
     "ModelManager"
 ] 

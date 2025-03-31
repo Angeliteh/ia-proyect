@@ -1,23 +1,95 @@
 {
-  "last_updated": "2025-03-30T22:08:47.071064",
+  "last_updated": "2025-03-31T00:49:52.556350",
   "files": {
-    "tts_es_-2011329046819368962.mp3": {
-      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-2011329046819368962.mp3",
-      "hash": "124c6153e227e571820ea78d7bb3681a",
-      "created_at": "2025-03-30T21:32:08.913525",
-      "last_used": "2025-03-30T21:32:20.674770",
-      "usage_count": 4,
+    "tts_es_-1248113702919262210.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-1248113702919262210.mp3",
+      "hash": "0dcc5ebb869a7802aafd64352022bced",
+      "created_at": "2025-03-31T00:14:54.697861",
+      "last_used": "2025-03-31T00:49:47.929879",
+      "usage_count": 10,
       "metadata": {
-        "text": "Soy Echo TTS. Echo: Esta es una prueba del sistema de cach\u00e9. Si funciona correctamente, la segunda v...",
+        "text": "Soy Echo TTS. Echo: Prueba de texto a voz",
         "voice_id": "es-male-1",
         "lang_code": "es"
       }
     },
-    "tts_es_21605261045588994.mp3": {
-      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_21605261045588994.mp3",
+    "tts_es_652888683151382531.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_652888683151382531.mp3",
+      "hash": "60c8f87648b9bda3c7b9839fe11d128d",
+      "created_at": "2025-03-31T00:16:37.752287",
+      "last_used": "2025-03-31T00:16:37.752287",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy Asistente Principal. Echo: Unstable: repite este mensaje",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-445023473609044993.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-445023473609044993.mp3",
+      "hash": "abb1ef98992445c36f6ca85275f40c61",
+      "created_at": "2025-03-31T00:25:04.339995",
+      "last_used": "2025-03-31T00:25:04.339995",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy Echo Service. Echo: Unstable: repite este mensaje",
+        "voice_id": "es-female-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-238995636219057154.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-238995636219057154.mp3",
+      "hash": "962669dfd933f2a8ca72a58392374d56",
+      "created_at": "2025-03-31T00:25:28.543311",
+      "last_used": "2025-03-31T00:26:04.455603",
+      "usage_count": 6,
+      "metadata": {
+        "text": "Soy Asistente Principal. Entendido. ",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-2182616022009664000.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-2182616022009664000.mp3",
+      "hash": "50a51882967af4d896d46187d3e817c9",
+      "created_at": "2025-03-31T00:25:36.373490",
+      "last_used": "2025-03-31T00:25:47.239328",
+      "usage_count": 4,
+      "metadata": {
+        "text": "Soy Asistente Principal. No estoy seguro de c\u00f3mo manejar esa solicitud directamente. D\u00e9jame intentar...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-3721060602973551.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-3721060602973551.mp3",
+      "hash": "7bcc7d41789d554ea2184f30879cd4c7",
+      "created_at": "2025-03-31T00:25:58.518521",
+      "last_used": "2025-03-31T00:25:58.519526",
+      "usage_count": 2,
+      "metadata": {
+        "text": "Soy Asistente Principal. Agent code_assistant not found",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-403192426029612035.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-403192426029612035.mp3",
+      "hash": "bf9f720094bf6e86ca525a0433fe9243",
+      "created_at": "2025-03-31T00:26:16.240171",
+      "last_used": "2025-03-31T00:26:16.240171",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy Asistente Principal. Hola, soy Asistente Principal, tu asistente personal. \u00bfEn qu\u00e9 puedo ayudart...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_1526832421468963072.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_1526832421468963072.mp3",
       "hash": "37dc6090dbeb6e61c215c3532dc39419",
-      "created_at": "2025-03-30T22:03:05.312184",
-      "last_used": "2025-03-30T22:03:05.316506",
+      "created_at": "2025-03-31T00:26:27.742335",
+      "last_used": "2025-03-31T00:26:27.743345",
       "usage_count": 2,
       "metadata": {
         "text": "Soy Jarvis. Hola, soy Jarvis, tu asistente personal. \u00bfEn qu\u00e9 puedo ayudarte hoy?",
@@ -25,26 +97,14 @@
         "lang_code": "es"
       }
     },
-    "tts_es_1938965183093721091.mp3": {
-      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_1938965183093721091.mp3",
+    "tts_es_-384172721327995905.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-384172721327995905.mp3",
       "hash": "904a13db4292515a2a085caa3d551610",
-      "created_at": "2025-03-30T22:03:17.268288",
-      "last_used": "2025-03-30T22:03:17.271286",
-      "usage_count": 2,
-      "metadata": {
-        "text": "Soy Jarvis, tu asistente personal. Puedo resolver tareas complejas coordinando agentes especializado...",
-        "voice_id": "es-male-1",
-        "lang_code": "es"
-      }
-    },
-    "tts_es_368960915075265538.mp3": {
-      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_368960915075265538.mp3",
-      "hash": "e7d5a19c5ceccced4395bfbd50fd96ce",
-      "created_at": "2025-03-30T22:08:47.071064",
-      "last_used": "2025-03-30T22:08:47.071064",
+      "created_at": "2025-03-31T00:26:39.968069",
+      "last_used": "2025-03-31T00:26:39.968069",
       "usage_count": 1,
       "metadata": {
-        "text": "Soy Jarvis. Echo: Echo: repite este mensaje importante",
+        "text": "Soy Jarvis, tu asistente personal. Puedo resolver tareas complejas coordinando agentes especializado...",
         "voice_id": "es-male-1",
         "lang_code": "es"
       }

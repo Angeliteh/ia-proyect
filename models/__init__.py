@@ -11,7 +11,6 @@ from .core import (
     ModelInfo,
     ModelOutput,
     ModelType,
-    QuantizationLevel,
     ModelManager,
     ResourceDetector
 )
@@ -20,6 +19,7 @@ from .core import (
 from .local import LlamaCppModel
 from .cloud import OpenAIModel
 
+
 # Exportar componentes
 __all__ = [
     # Core
@@ -27,7 +27,6 @@ __all__ = [
     "ModelInfo", 
     "ModelOutput",
     "ModelType",
-    "QuantizationLevel",
     "ModelManager",
     "ResourceDetector",
     

@@ -128,7 +128,7 @@ class ResourceDetector:
         
         # Intentar detectar GPUs NVIDIA
         try:
-            import pynvml
+            import pynvml  # type: ignore
             pynvml.nvmlInit()
             
             gpu_info["available"] = True

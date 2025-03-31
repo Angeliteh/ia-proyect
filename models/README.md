@@ -1,146 +1,198 @@
-# Sistema de Gestión de Modelos de IA
+# Sistema de Gestión de Modelos
 
-Este módulo proporciona un sistema completo para gestionar modelos de lenguaje de IA, tanto locales como en la nube, optimizando el uso de recursos del sistema.
+Este directorio contiene la implementación del sistema de gestión de modelos de IA, tanto locales como en la nube, con detección de recursos y sistema de fallback.
 
-## Características principales
-
-- **Gestión unificada** de modelos locales y en la nube con una interfaz común
-- **Detección automática de recursos** (CPU, RAM, GPU, VRAM) para optimizar la carga de modelos
-- **Selección inteligente de dispositivo** (CPU/GPU) según el tamaño del modelo y recursos disponibles
-- **Interfaz asíncrona** para todas las operaciones de modelo, incluyendo streaming de respuestas
-- **Soporte para múltiples tipos de modelos**:
-  - Locales: Llama, Mistral, Phi (usando llama.cpp)
-  - Nube: OpenAI, Anthropic, Google Gemini
-- **Configuración flexible** de modelos mediante archivos JSON
-
-## Estructura del módulo
+## Estructura del Directorio
 
 ```
 models/
-├── core/                  # Componentes core
-│   ├── model_manager.py   # Gestor principal de modelos
-│   └── resource_detector.py # Detector de recursos del sistema
-├── local/                 # Implementaciones de modelos locales
-│   └── llama_cpp_model.py # Modelo usando llama.cpp
-├── cloud/                 # Implementaciones de modelos en la nube
-│   └── openai_model.py    # Cliente para la API de OpenAI
-└── examples/              # Scripts de ejemplo
-    ├── model_manager_example.py # Demo del gestor de modelos
-    └── model_config.json  # Configuración de ejemplo
+├── core/                   # Componentes centrales del sistema
+│   ├── model_manager.py    # Gestor de modelos
+│   └── resource_detector.py# Detector de recursos
+├── cloud/                  # Modelos de IA en la nube
+│   ├── gemini_model.py     # Implementación de Google Gemini
+│   └── ...                 # Otros modelos en la nube (OpenAI, etc.)
+├── local/                  # Modelos de IA locales
+│   ├── llama_cpp_model.py  # Implementación de modelos con llama.cpp
+│   └── ...                 # Otros modelos locales
+└── README.md               # Este archivo
 ```
 
-## Clases principales
+## Arquitectura
 
-### ModelManager
+El sistema de modelos utiliza las siguientes clases principales:
 
-Clase central que gestiona la carga, uso y liberación de modelos. Proporciona métodos para:
+- `ModelInterface`: Interfaz base que deben implementar todos los modelos.
+- `ModelInfo`: Contiene información sobre un modelo (nombre, tipo, ruta, etc.).
+- `ModelOutput`: Clase estandarizada para las salidas de los modelos.
+- `ModelManager`: Gestor central que carga, usa y descarga modelos.
+- `ResourceDetector`: Detecta recursos del sistema (CPU, RAM, GPU).
 
-- Cargar modelos automáticamente seleccionando el dispositivo óptimo
-- Listar modelos disponibles y cargados
-- Guardar y cargar configuraciones de modelos
+### Diagrama de Flujo
 
-### ModelInfo
+```
++-------------+      +-----------------+      +----------------+
+| Usuario/API |----->| ModelManager    |----->| ModelInterface |
++-------------+      | - load_model()  |      | - generate()   |
+                     | - unload_model()|      | - generate_stream() |
+                     +-----------------+      +----------------+
+                            |                     ^
+                            v                     |
+                     +-----------------+    +----------------+
+                     | ResourceDetector|    | Implementaciones |
+                     | - detect_gpu()  |    | - GeminiModel   |
+                     | - detect_cpu()  |    | - LlamaCppModel |
+                     +-----------------+    +----------------+
+```
 
-Almacena información sobre un modelo específico:
+## Características Principales
 
-- Nombre y tipo
-- Ubicación (local o nube)
-- Propiedades como longitud de contexto y nivel de cuantización
-- API keys para modelos en la nube
+- **Carga dinámica de modelos**: Los modelos se cargan según necesidad y se liberan cuando no se usan.
+- **Detección de recursos**: Selecciona automáticamente CPU o GPU según disponibilidad.
+- **Streaming de texto**: Permite generación en tiempo real con ambos tipos de modelos.
+- **Sistema de fallback**: Si un modelo falla, puede intentar con otro.
+- **Mínimas restricciones de contenido**: Configuración permisiva para evitar censura.
 
-### ModelInterface
+## Cómo Usar
 
-Interfaz abstracta que todos los modelos implementan:
-
-- Generación de texto (con o sin streaming)
-- Tokenización y conteo de tokens
-- Generación de embeddings
-
-### ResourceDetector
-
-Detecta los recursos disponibles en el sistema:
-
-- Información de CPU (núcleos, hilos)
-- Memoria RAM disponible
-- GPUs y VRAM disponible
-- Capacidad para estimar el dispositivo óptimo para cada modelo
-
-## Uso básico
+### Ejemplo Básico
 
 ```python
 import asyncio
-from models import ModelManager
+from models.core import ModelManager
 
 async def main():
-    # Crear gestor de modelos 
+    # Crear el gestor de modelos
     model_manager = ModelManager()
     
-    # Listar modelos disponibles
-    models = model_manager.list_available_models()
-    print(f"Modelos disponibles: {len(models)}")
-    
     # Cargar un modelo
-    model, model_info = await model_manager.load_model("gpt-4o")
+    model, info = await model_manager.load_model("gemini-2.0-flash")
     
     # Generar texto
-    result = await model.generate(
-        prompt="Explica de manera sencilla cómo funciona un modelo de lenguaje grande.",
-        max_tokens=1024
+    response = await model.generate(
+        prompt="Escribe un poema sobre la tecnología",
+        max_tokens=500,
+        temperature=0.7
     )
     
-    print(result.text)
+    print(response.text)
     
-    # Descargar modelo
-    await model_manager.unload_model("gpt-4o")
+    # Descargar el modelo
+    await model_manager.unload_model("gemini-2.0-flash")
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-## Configuración
+### Ejemplo con Streaming
 
-### Modelo local
+```python
+import asyncio
+from models.core import ModelManager
 
-```json
-{
-  "name": "mistral-7b-instruct",
-  "model_type": "mistral",
-  "local": true,
-  "path": "models/local/mistral-7b-instruct-v0.2.Q4_K_M.gguf",
-  "context_length": 8192,
-  "quantization": "q4_k_m",
-  "parameters": 7.0
+async def main():
+    model_manager = ModelManager()
+    model, _ = await model_manager.load_model("mistral-7b-instruct")
+    
+    # Usar generación en streaming
+    async for chunk in model.generate_stream(
+        prompt="Escribe un cuento de misterio",
+        max_tokens=500
+    ):
+        print(chunk, end="", flush=True)
+    
+    await model_manager.unload_model("mistral-7b-instruct")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+## Añadir un Nuevo Modelo
+
+Para añadir un nuevo modelo al sistema, sigue estos pasos:
+
+### 1. Crear la Implementación del Modelo
+
+Crea un nuevo archivo en `models/cloud/` o `models/local/` según corresponda:
+
+```python
+# models/cloud/nuevo_modelo.py
+from typing import Dict, List, Any, Optional, Union, AsyncGenerator
+from ..core.model_manager import ModelInterface, ModelInfo, ModelOutput
+
+class NuevoModelo(ModelInterface):
+    def __init__(self, model_info: ModelInfo):
+        self.model_info = model_info
+        # Inicialización específica del modelo
+    
+    async def generate(self, prompt: str, max_tokens: int = 1024, 
+                      temperature: float = 0.7) -> ModelOutput:
+        # Implementación de generación de texto
+        return ModelOutput(text="Texto generado", tokens=10)
+    
+    async def generate_stream(self, prompt: str, max_tokens: int = 1024,
+                             temperature: float = 0.7) -> AsyncGenerator[str, None]:
+        # Implementación de streaming
+        yield "Texto "
+        yield "generado "
+        yield "en chunks"
+```
+
+### 2. Registrar el Nuevo Modelo en ModelManager
+
+En `models/core/model_manager.py`, añade la referencia al nuevo modelo:
+
+```python
+self.model_implementations = {
+    ModelType.MISTRAL.value: "models.local.llama_cpp_model.LlamaCppModel",
+    ModelType.GEMINI.value: "models.cloud.gemini_model.GeminiModel",
+    ModelType.NUEVO.value: "models.cloud.nuevo_modelo.NuevoModelo" # Nuevo modelo
 }
 ```
 
-### Modelo en la nube
+### 3. Añadir el Tipo de Modelo
+
+En `models/core/model_manager.py`, agrega el nuevo tipo de modelo:
+
+```python
+class ModelType(str, Enum):
+    """Tipos de modelos disponibles."""
+    LLAMA = "llama"
+    MISTRAL = "mistral"
+    GEMINI = "gemini"
+    NUEVO = "nuevo"  # Nuevo tipo de modelo
+```
+
+### 4. Configuración del Modelo
+
+Añade la configuración en `config/models.json`:
 
 ```json
 {
-  "name": "gpt-4o",
-  "model_type": "openai",
-  "local": false,
-  "api_key_env": "OPENAI_API_KEY",
-  "context_length": 128000
+  "models": [
+    {
+      "name": "nuevo-modelo",
+      "model_type": "nuevo",
+      "local": false,
+      "api_key_env": "NUEVO_API_KEY",
+      "context_length": 16384
+    }
+  ]
 }
 ```
 
-## Requisitos
+## Mejores Prácticas
 
-### Generales
-- Python 3.8+
-- asyncio
+1. **Manejo de errores**: Implementa un buen manejo de excepciones en los modelos.
+2. **Streaming eficiente**: Utiliza chunks pequeños para una experiencia fluida.
+3. **Liberación de recursos**: Siempre llama a `unload_model()` cuando termines.
+4. **Configuración modular**: Usa el archivo JSON para configurar los modelos.
+5. **Extensibilidad**: Sigue los patrones existentes al añadir funcionalidades.
 
-### Para modelos locales
-- llama-cpp-python
-- (Opcional) PyTorch para detección de GPU
+## Pruebas y Ejemplos
 
-### Para modelos en la nube
-- httpx
+Consulta los ejemplos en el directorio `examples/models/` para ver implementaciones completas y casos de uso.
 
-## Próximas mejoras
-
-- Implementación de clientes para Anthropic y Google Gemini
-- Caché de resultados de generación
-- Balanceo de carga entre múltiples modelos
-- Más opciones de cuantización y optimización 
+- `model_manager_example.py`: Muestra el uso básico del ModelManager.
+- `streaming_example.py`: Ejemplo de generación en tiempo real.
+- `fallback_example.py`: Demostración del sistema de fallback entre modelos. 

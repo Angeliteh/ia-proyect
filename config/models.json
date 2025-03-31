@@ -1,53 +1,5 @@
 {
-  "models": [
-    {
-      "name": "gpt-3.5-turbo-16k",
-      "model_type": "openai",
-      "local": false,
-      "api_key_env": "OPENAI_API_KEY",
-      "context_length": 16385,
-      "description": "Modelo con mayor límite de requests y buena capacidad de contexto"
-    },
-    {
-      "name": "gpt-3.5-turbo",
-      "model_type": "openai",
-      "local": false,
-      "api_key_env": "OPENAI_API_KEY",
-      "context_length": 4096,
-      "description": "Versión estándar de GPT-3.5, equilibrio entre rendimiento y costo"
-    },
-    {
-      "name": "gpt-4o",
-      "model_type": "openai",
-      "local": false,
-      "api_key_env": "OPENAI_API_KEY",
-      "context_length": 128000,
-      "description": "Modelo más avanzado de OpenAI, alto límite de contexto pero con límites de uso más estrictos"
-    },
-    {
-      "name": "claude-3-haiku-20240307",
-      "model_type": "anthropic",
-      "local": false,
-      "api_key_env": "ANTHROPIC_API_KEY",
-      "context_length": 100000,
-      "description": "Modelo básico de Anthropic (reemplaza a claude-instant-1), buena capacidad pero respuestas más simples y económicas"
-    },
-    {
-      "name": "claude-3-sonnet-20240229",
-      "model_type": "anthropic",
-      "local": false,
-      "api_key_env": "ANTHROPIC_API_KEY",
-      "context_length": 100000,
-      "description": "Equilibrio entre calidad y rendimiento en los modelos Claude"
-    },
-    {
-      "name": "claude-3-opus-20240229",
-      "model_type": "anthropic",
-      "local": false,
-      "api_key_env": "ANTHROPIC_API_KEY",
-      "context_length": 200000,
-      "description": "Modelo más avanzado de Anthropic, excelente para tareas complejas"
-    },
+  "models": [  
     {
       "name": "gemini-2.0-flash",
       "model_type": "gemini",
@@ -57,42 +9,24 @@
       "description": "Modelo de Google Gemini 2.0 Flash, rápido y eficiente para generación de texto"
     },
     {
-      "name": "gemini-pro",
+      "name": "gemini-1.5-pro-latest",
       "model_type": "gemini",
       "local": false,
       "api_key_env": "GOOGLE_API_KEY",
       "context_length": 32768,
-      "description": "Modelo Gemini Pro, versátil para múltiples tareas"
-    },
-    {
-      "name": "phi-2",
-      "model_type": "phi",
-      "local": true,
-      "path": "ia-proyect/models/local/phi-2.Q4_K_M.gguf",
-      "context_length": 2048,
-      "quantization": "q4_k_m",
-      "parameters": 2.7,
-      "description": "Modelo pequeño pero potente, ideal para máquinas con recursos limitados"
+      "description": "Modelo 1.5 Pro, siempre responde y es estable"
     },
     {
       "name": "mistral-7b-instruct",
       "model_type": "mistral",
       "local": true,
-      "path": "ia-proyect/models/local/Mistral-7B-Instruct-v0.3.Q4_K_M.gguf",
-      "context_length": 8192,
+      "path": "models/local/Mistral-7B-Instruct-v0.3.Q4_K_M.gguf",
+      "context_length": 32768,
       "quantization": "q4_k_m",
       "parameters": 7.0,
-      "description": "Buen equilibrio entre tamaño y rendimiento, excelente para instrucciones"
-    },
-    {
-      "name": "llama-2-7b-chat",
-      "model_type": "llama",
-      "local": true,
-      "path": "ia-proyect/models/local/llama-2-7b-chat.Q4_K_M.gguf",
-      "context_length": 4096,
-      "quantization": "q4_k_m",
-      "parameters": 7.0,
-      "description": "Modelo versátil para chat y generación de texto"
+      "description": "Buen equilibrio entre tamaño y rendimiento, excelente para instrucciones",
+      "device": "auto",
+      "gpu_layers": 0
     }
   ]
 } 

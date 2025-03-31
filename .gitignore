@@ -60,3 +60,4 @@ chromadb/
 # Archivos generados por el sistema
 .coverage
 htmlcov/ 
+*.mp3

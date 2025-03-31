@@ -293,9 +293,9 @@ models:
       - "q8_0"          # Alta calidad
   cloud:
     providers:
-      - "openai"        # Modelos GPT
-      - "anthropic"     # Modelos Claude
       - "gemini"        # Modelos de Google
+      - "openai"        # Modelos GPT (opcional)
+      - "anthropic"     # Modelos Claude (opcional)
   resource_detection:
     enabled: true
     auto_device_selection: true
@@ -310,12 +310,31 @@ models:
     cloud_to_local_fallback: true  # Si falla un modelo cloud, intentar local
     local_to_cloud_fallback: false  # No ir de local a cloud por defecto
     wait_between_attempts: 1.0  # Segundos entre intentos
-  prompt_templates:
-    default: "standard"  # Plantilla estándar por defecto
-    local:
-      format: "alpaca"  # Formato <|im_start|>system, etc.
-    cloud:
-      format: "standard"  # Formato más simple
+  model_interface:
+    required_methods:
+      - "generate"             # Generación de texto sincrónica
+      - "generate_stream"      # Generación de texto en streaming
+    optional_methods:
+      - "tokenize"             # Tokenizar texto
+      - "count_tokens"         # Contar tokens
+      - "embed"                # Generar embeddings
+  implementation_patterns:
+    base_class: "ModelInterface"
+    model_registration: "model_implementations"    # Diccionario para registrar nuevos modelos
+    dynamic_loading: true      # Carga dinámica de implementaciones
+    metadata_standard: true    # Uso de metadatos estándar
+  model_config:
+    path: "config/models.json"
+    format: "json"
+    required_fields:
+      - "name"                 # Nombre del modelo
+      - "model_type"           # Tipo de modelo (llama, mistral, gemini, etc.)
+      - "local"                # Si es local o en la nube
+    conditional_fields:
+      local_true:
+        - "path"               # Ruta al archivo de modelo local
+      local_false:
+        - "api_key_env"        # Variable de entorno con API key
 
 # Configuración de TTS
 tts:

@@ -47,11 +47,13 @@ except ImportError as e:
     class Agent:
         """Clase base para agentes."""
         
-        def __init__(self, name, description=None):
-            self.name = name
-            self.description = description or f"Agent: {name}"
+        def __init__(self, agent_id, config=None):
+            self.agent_id = agent_id
+            self.config = config or {}
+            self.name = config.get("name", agent_id) if config else agent_id
+            self.description = config.get("description", f"Agent: {self.name}") if config else f"Agent: {self.name}"
             self.created_at = datetime.now()
-            logger.info(f"Agente {name} creado")
+            logger.info(f"Agente {self.name} creado")
         
         def process_message(self, message, **kwargs):
             """Procesar un mensaje (método abstracto)."""
@@ -60,6 +62,7 @@ except ImportError as e:
         def get_info(self):
             """Obtener información sobre el agente."""
             return {
+                "agent_id": self.agent_id,
                 "name": self.name,
                 "description": self.description,
                 "type": self.__class__.__name__,
@@ -69,16 +72,59 @@ except ImportError as e:
     class EchoAgent(Agent):
         """Agente simple que repite los mensajes que recibe."""
         
-        def __init__(self, name="EchoAgent", description=None):
-            super().__init__(name, description or "Agent that echoes back the messages it receives")
+        def __init__(self, agent_id="echo_agent", config=None):
+            config = config or {"name": "EchoAgent", "description": "Agent that echoes back the messages it receives"}
+            super().__init__(agent_id, config)
             self.message_count = 0
         
+        async def process(self, query, context=None):
+            """Procesar una consulta, devolviéndola como eco."""
+            self.message_count += 1
+            response_content = f"Echo: [{self.message_count}] {query}"
+            logger.info(f"{self.name} procesando consulta: '{query}' -> '{response_content}'")
+            
+            # Crear una respuesta simulada en el formato esperado
+            class AgentResponse:
+                def __init__(self, content, status="success", metadata=None):
+                    self.content = content
+                    self.status = status
+                    self.metadata = metadata or {}
+            
+            return AgentResponse(
+                content=response_content,
+                metadata={"agent_id": self.agent_id, "context": context or {}}
+            )
+        
         def process_message(self, message, **kwargs):
-            """Procesar un mensaje, devolviéndolo como eco."""
+            """Método de compatibilidad para la versión mock."""
             self.message_count += 1
             response = f"Echo: [{self.message_count}] {message}"
-            logger.info(f"{self.name} processando mensaje: '{message}' -> '{response}'")
+            logger.info(f"{self.name} procesando mensaje: '{message}' -> '{response}'")
             return response
+        
+        def get_capabilities(self):
+            """Obtener capacidades del agente."""
+            return ["echo"]
+
+async def run_async_test(echo_agent, message, count):
+    """Ejecutar prueba asíncrona para la implementación real."""
+    logger.info(f"Ejecutando prueba asíncrona para '{message}' {count} veces...")
+    
+    for i in range(count):
+        response = await echo_agent.process(message)
+        logger.info(f"Respuesta {i+1}: {response.content}")
+    
+    return "Prueba asíncrona completada"
+
+def run_sync_test(echo_agent, message, count):
+    """Ejecutar prueba síncrona para la implementación mock."""
+    logger.info(f"Ejecutando prueba síncrona para '{message}' {count} veces...")
+    
+    for i in range(count):
+        response = echo_agent.process_message(message)
+        logger.info(f"Respuesta {i+1}: {response}")
+    
+    return "Prueba síncrona completada"
 
 def main():
     """Función principal del ejemplo."""
@@ -101,8 +147,20 @@ def main():
             # solo lo reportamos para fines informativos
             sys.exit(0)
     
-    # Crear un agente de eco
-    echo_agent = EchoAgent(name="EchoDemo")
+    # Crear un agente de eco utilizando la firma correcta
+    if USING_REAL_MODULES:
+        # Para la implementación real, usamos agent_id y config
+        echo_agent = EchoAgent(
+            agent_id="echo_demo",
+            config={
+                "name": "EchoDemo",
+                "description": "Agente de demostración para pruebas de eco",
+                "use_tts": False  # Deshabilitamos TTS para las pruebas
+            }
+        )
+    else:
+        # Para la implementación mock, usamos la firma simplificada
+        echo_agent = EchoAgent(agent_id="echo_demo")
     
     # Mostrar información del agente
     info = echo_agent.get_info()
@@ -112,12 +170,15 @@ def main():
     message = args.message
     count = args.count
     
-    logger.info(f"Enviando '{message}' al agente {count} veces...")
+    if USING_REAL_MODULES:
+        # Para la implementación real, necesitamos usar asyncio
+        import asyncio
+        result = asyncio.run(run_async_test(echo_agent, message, count))
+    else:
+        # Para la implementación mock, podemos usar el método síncrono
+        result = run_sync_test(echo_agent, message, count)
     
-    for i in range(count):
-        response = echo_agent.process_message(message)
-        logger.info(f"Respuesta {i+1}: {response}")
-    
+    logger.info(result)
     logger.info("Ejemplo completado")
 
 if __name__ == "__main__":
