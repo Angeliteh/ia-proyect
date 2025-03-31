@@ -10,6 +10,7 @@ from .code_agent import CodeAgent
 from .system_agent import SystemAgent
 from .orchestrator_agent import OrchestratorAgent
 from .planner_agent import PlannerAgent
+from .main_assistant.main_assistant import MainAssistant
 from .agent_communication import (
     MessageType, 
     Message, 
@@ -28,6 +29,7 @@ __all__ = [
     'SystemAgent',
     'OrchestratorAgent',
     'PlannerAgent',
+    'MainAssistant',
     'MessageType',
     'Message',
     'AgentCommunicator',

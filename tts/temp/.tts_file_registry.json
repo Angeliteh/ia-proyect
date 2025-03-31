@@ -1,5 +1,5 @@
 {
-  "last_updated": "2025-03-30T21:32:33.317263",
+  "last_updated": "2025-03-30T22:08:47.071064",
   "files": {
     "tts_es_-2011329046819368962.mp3": {
       "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-2011329046819368962.mp3",
@@ -9,6 +9,42 @@
       "usage_count": 4,
       "metadata": {
         "text": "Soy Echo TTS. Echo: Esta es una prueba del sistema de cach\u00e9. Si funciona correctamente, la segunda v...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_21605261045588994.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_21605261045588994.mp3",
+      "hash": "37dc6090dbeb6e61c215c3532dc39419",
+      "created_at": "2025-03-30T22:03:05.312184",
+      "last_used": "2025-03-30T22:03:05.316506",
+      "usage_count": 2,
+      "metadata": {
+        "text": "Soy Jarvis. Hola, soy Jarvis, tu asistente personal. \u00bfEn qu\u00e9 puedo ayudarte hoy?",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_1938965183093721091.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_1938965183093721091.mp3",
+      "hash": "904a13db4292515a2a085caa3d551610",
+      "created_at": "2025-03-30T22:03:17.268288",
+      "last_used": "2025-03-30T22:03:17.271286",
+      "usage_count": 2,
+      "metadata": {
+        "text": "Soy Jarvis, tu asistente personal. Puedo resolver tareas complejas coordinando agentes especializado...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_368960915075265538.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_368960915075265538.mp3",
+      "hash": "e7d5a19c5ceccced4395bfbd50fd96ce",
+      "created_at": "2025-03-30T22:08:47.071064",
+      "last_used": "2025-03-30T22:08:47.071064",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy Jarvis. Echo: Echo: repite este mensaje importante",
         "voice_id": "es-male-1",
         "lang_code": "es"
       }

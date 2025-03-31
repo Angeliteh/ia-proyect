@@ -8,6 +8,8 @@ Este sistema permite la integración de múltiples agentes especializados que pu
 
 ## Características principales
 
+- **MainAssistant**: Punto central de interacción con el usuario que coordina todos los agentes
+- **TTS (Text-to-Speech)**: Capacidad de respuesta por voz usando múltiples proveedores
 - **MCP (Model Context Protocol)**: Implementación del estándar abierto de Anthropic para conectar modelos de IA con datos
 - **Arquitectura Cliente-Servidor**: Permite a los modelos acceder a datos a través de servidores MCP
 - **Arquitectura modular**: Cada agente es independiente y con capacidades específicas
@@ -22,6 +24,20 @@ Este sistema permite la integración de múltiples agentes especializados que pu
 
 ```
 ai-agent-system/
+├── agents/                # Implementaciones de agentes
+│   ├── base.py           # Clase base para todos los agentes
+│   ├── agent_communication.py  # Sistema de comunicación entre agentes
+│   ├── main_assistant/   # Agente principal para interacción centralizada
+│   ├── echo_agent.py     # Agente de eco simple (para pruebas)
+│   ├── code_agent.py     # Agente especializado en tareas de código
+│   ├── system_agent.py   # Agente para interacción con el sistema
+│   └── orchestrator_agent.py # Agente para coordinar tareas complejas
+├── tts/                  # Sistema Text-to-Speech
+│   ├── core/             # Componentes principales del sistema TTS
+│   │   ├── simple_tts_manager.py  # Implementación con gTTS (Google)
+│   │   ├── tts_manager.py # Implementación con MAYA/ElevenLabs
+│   │   └── file_manager.py # Gestión de archivos temporales
+│   └── temp/             # Archivos temporales de audio
 ├── mcp/                  # Implementación del Model Context Protocol
 │   ├── core/             # Núcleo del protocolo y clases base
 │   ├── protocol/         # Definiciones del protocolo MCP
@@ -37,12 +53,6 @@ ai-agent-system/
 │   ├── brave_search/     # Cliente específico para Brave Search
 │   ├── http/             # Cliente genérico HTTP para MCP
 │   └── README.md         # Documentación de clientes MCP
-├── agents/               # Implementaciones de agentes
-│   ├── base.py           # Clase base para todos los agentes
-│   ├── agent_communication.py  # Sistema de comunicación entre agentes
-│   ├── echo_agent.py     # Agente de eco simple (para pruebas)
-│   ├── code_agent.py     # Agente especializado en tareas de código
-│   └── system_agent.py   # Agente para interacción con el sistema
 ├── memory/               # Sistema de memoria compartida
 │   ├── core/             # Núcleo del sistema de memoria
 │   ├── storage/          # Backends de almacenamiento
@@ -62,11 +72,100 @@ ai-agent-system/
 │   ├── mcp/              # Ejemplos de uso del MCP
 │   ├── models/           # Ejemplos de uso de modelos
 │   ├── agents/           # Ejemplos de uso de agentes
+│   │   └── main_assistant/ # Ejemplos del MainAssistant
+│   ├── tts/              # Ejemplos de uso del sistema TTS
 │   ├── memory/           # Ejemplos de uso del sistema de memoria
 │   ├── integration/      # Tests de integración entre componentes
 │   └── README.md         # Guía para ejecutar ejemplos y tests
 └── data/                 # Directorio para datos y recursos
 ```
+
+## Arquitectura centralizada con MainAssistant
+
+El sistema implementa una arquitectura centralizada a través del componente `MainAssistant`, que actúa como punto único de interacción con el usuario y coordina todos los agentes especializados:
+
+### Características del MainAssistant
+
+- **Interacción unificada**: Presenta una interfaz consistente y coherente para el usuario
+- **Delegación inteligente**: Analiza las consultas y las redirige al agente especializado más adecuado
+- **Coordinación con el orquestador**: Permite resolver tareas complejas que requieren múltiples agentes
+- **TTS integrado**: Genera respuestas auditivas consistentes con una voz personalizable
+- **Gestión de contexto**: Mantiene el contexto de la conversación y registro histórico
+- **Memoria persistente**: Almacena interacciones para referencias futuras
+
+### Flujo de trabajo centralizado
+
+1. El usuario interactúa con el **MainAssistant** mediante consultas de texto
+2. MainAssistant analiza la consulta para determinar su naturaleza
+3. Para consultas simples, responde directamente
+4. Para consultas especializadas, delega al agente adecuado (CodeAgent, SystemAgent, etc.)
+5. Para tareas complejas, coordina con el OrchestratorAgent para dividir el trabajo
+6. Procesa la respuesta final, aplica TTS si está habilitado, y presenta el resultado al usuario
+
+Ejemplo de uso:
+
+```python
+from agents import MainAssistant
+
+# Crear el asistente principal
+main_assistant = MainAssistant(
+    agent_id="jarvis",
+    config={
+        "name": "Jarvis",
+        "description": "Asistente principal centralizado",
+        "use_tts": True,
+        "default_voice": "Carlos"
+    }
+)
+
+# Usar el asistente para procesar consultas
+response = await main_assistant.process(
+    "Escribe un programa en Python para calcular el factorial de un número"
+)
+
+# El MainAssistant delegará automáticamente al CodeAgent
+print(response.content)
+```
+
+## Sistema Text-to-Speech (TTS)
+
+El sistema incluye capacidades avanzadas de Text-to-Speech que permiten a los agentes comunicarse mediante voz:
+
+### Características principales del TTS
+
+- **Modular y extensible**: Arquitectura que permite múltiples implementaciones
+- **Múltiples proveedores**: Soporte para Google TTS (gTTS) y MAYA/ElevenLabs
+- **Gestión inteligente de archivos**: Sistema de limpieza automática y caché
+- **Personalización de voces**: Asignación de voces específicas por agente
+- **Selección de idioma**: Soporte para múltiples idiomas
+- **Integración con agentes**: Todos los agentes pueden usar TTS con mínima configuración
+
+### Componentes clave
+
+- **AgentTTSInterface**: Interfaz unificada para todos los agentes
+- **SimpleTTSManager**: Implementación basada en gTTS (gratuita, para desarrollo)
+- **TTSManager**: Implementación basada en MAYA/ElevenLabs (mayor calidad)
+- **TTSFileManager**: Gestión de archivos temporales con limpieza y caché
+
+Ejemplo de uso directo del TTS:
+
+```python
+from tts.core import SimpleTTSManager
+
+# Crear gestor TTS
+tts_manager = SimpleTTSManager()
+
+# Generar audio a partir de texto
+audio_file = tts_manager.text_to_speech(
+    text="Hola, soy un asistente virtual.",
+    voice_name="Carlos"
+)
+
+# Reproducir el audio
+tts_manager.play_audio(audio_file)
+```
+
+Para más información, consulte los [ejemplos de TTS](./examples/tts/).
 
 ## Acerca del Model Context Protocol (MCP)
 
@@ -104,6 +203,10 @@ Para más detalles, consulte [la documentación de modelos](./models/README.md).
   - llama-cpp-python
   - (Opcional) NVIDIA GPU con drivers CUDA para aceleración
   - (Opcional) PyTorch para detección y uso avanzado de GPU
+- Para TTS:
+  - pygame (reproducción de audio)
+  - gTTS (Google Text-to-Speech)
+  - (Opcional) API key MAYA/ElevenLabs para mayor calidad de voz
 
 ## Instalación
 
@@ -135,6 +238,21 @@ Para usar modelos locales, descarga los archivos GGUF en el directorio `models/l
 
 ## Uso
 
+### MainAssistant (Interfaz centralizada)
+
+Para interactuar con el sistema a través del asistente principal:
+
+```bash
+# Modo interactivo con el MainAssistant
+python examples/agents/main_assistant/main_assistant_example.py --interactive
+
+# Probar delegación a un agente específico
+python examples/agents/main_assistant/main_assistant_example.py --test code
+
+# Ejecutar todas las pruebas
+python examples/agents/main_assistant/main_assistant_example.py --test all
+```
+
 ### Ejemplos de modelos
 
 Para probar el sistema de modelos:
@@ -150,12 +268,19 @@ python examples/model_manager_example.py --model mistral-7b-instruct --device au
 python examples/model_manager_example.py --model phi-2 --device gpu --temperature 0.3
 ```
 
-### Modo interactivo
+### Ejemplos de TTS
 
-Para iniciar el sistema en modo interactivo:
+Para probar el sistema de Text-to-Speech:
 
 ```bash
-python main.py --mode interactive
+# Prueba básica con voces disponibles
+python examples/tts/tts_echo_test.py --list-voices
+
+# Generar y reproducir audio con una voz específica
+python examples/tts/tts_echo_test.py --voice "Carlos" --query "Hola, esto es una prueba del sistema Text-to-Speech"
+
+# Probar la caché y sistema de limpieza
+python examples/tts/tts_echo_test.py --check-cache --cleanup
 ```
 
 ### Modo API
@@ -166,97 +291,14 @@ Para iniciar el servidor API:
 python main.py --mode api
 ```
 
-## Servidores MCP disponibles
-
-El sistema incluye implementaciones de servidores MCP para conectar con:
-
-- **SQLite**: Acceso completo a bases de datos SQLite con operaciones CRUD y consultas personalizadas
-- **Brave Search**: Acceso a la API de búsqueda web y local de Brave (planificado)
-- **Sistema de archivos local**: Acceso a archivos y directorios locales (planificado)
-- **Base de datos MongoDB**: Conexión con bases de datos MongoDB (planificado)
-
-### Servidor SQLite MCP
-
-El servidor de SQLite permite a los modelos de IA interactuar con bases de datos SQLite a través del protocolo MCP. Características principales:
-
-- **Operaciones CRUD completas** para bases de datos y tablas
-- **Consultas SQL personalizadas** con soporte para parámetros
-- **Paginación** para listar grandes conjuntos de datos
-- **Validación y sanitización** de consultas SQL para prevenir inyecciones
-- **Exposición vía HTTP** para acceso remoto
-- **CLI** para iniciar el servidor desde línea de comandos
-
-Ejemplo de uso:
-```python
-from mcp.connectors.http_client import MCPHttpClient
-from mcp.core.protocol import MCPMessage, MCPAction
-
-# Conectar con el servidor SQLite MCP
-client = MCPHttpClient(base_url="http://localhost:8080")
-client.connect()
-
-# Crear una consulta
-query_msg = MCPMessage(
-    action=MCPAction.SEARCH,
-    resource_type="query",
-    resource_path="/query",
-    data={
-        "db_name": "mi_base_datos.db",
-        "query": "SELECT * FROM usuarios WHERE edad > ?",
-        "params": [25]
-    }
-)
-
-# Enviar la consulta y procesar resultados
-response = client.send_message(query_msg)
-if response.success:
-    for usuario in response.data.get("results", []):
-        print(f"Usuario: {usuario['nombre']}, Edad: {usuario['edad']}")
-```
-
-Para más detalles, consulte la [documentación del servidor SQLite MCP](./mcp_servers/sqlite/README.md).
-
-### Brave Search MCP Server
-
-El servidor de Brave Search permite a los modelos de IA realizar búsquedas web y locales a través de la API oficial de Brave. Características:
-
-- **Búsqueda web**: Obtención de resultados web para consultas
-- **Búsqueda local**: Búsqueda de lugares/negocios con coordenadas geográficas
-- **Fallback automático**: Si no hay resultados locales, puede usar búsqueda web como respaldo
-- **Autenticación**: Uso de API key para acceder a los servicios de Brave
-
-Ejemplo de uso:
-```python
-from mcp.core import MCPMessage
-from mcp_servers import BraveSearchMCPServer
-
-# Crear servidor (requiere API key)
-server = BraveSearchMCPServer(api_key="tu_api_key_brave")
-
-# Crear mensaje para búsqueda web
-message = MCPMessage.create_search_request(
-    resource_type="web_search", 
-    query="inteligencia artificial", 
-    params={"count": 5}
-)
-
-# Enviar mensaje y obtener respuesta
-response = server.handle_action(message)
-
-# Procesar resultados
-if response.status == "success":
-    results = response.data.get("results", [])
-    for item in results:
-        print(f"Título: {item['title']}")
-        print(f"URL: {item['url']}")
-        print(f"Descripción: {item['description'][:100]}...")
-```
-
 ## Agentes disponibles
 
-- **Echo Agent**: Agente simple para pruebas que repite el input (actualmente implementado)
-- **PC Control Agent**: Agente para control del sistema operativo (planificado)
-- **Programming Agent**: Agente para generación y análisis de código (planificado)
+- **MainAssistant**: Agente centralizado que coordina todos los demás agentes (implementado)
+- **Echo Agent**: Agente simple para pruebas que repite el input (implementado)
+- **Code Agent**: Agente para generación y análisis de código (implementado)
+- **System Agent**: Agente para control del sistema operativo (implementado)
+- **Orchestrator Agent**: Agente que coordina tareas complejas (implementado)
+- **Planner Agent**: Agente que planifica tareas complejas (implementado)
 - **Science Agent**: Agente para discusiones científicas y filosóficas (planificado)
 
 ## Licencia
@@ -270,6 +312,20 @@ MIT
 ## Organización del código
 
 El proyecto sigue una estructura modular con los siguientes componentes principales:
+
+### Agentes Centrales
+
+- **MainAssistant**: Punto central de interacción que coordina todos los demás agentes
+- **OrchestratorAgent**: Coordina la ejecución de tareas complejas entre múltiples agentes
+- **Agentes especializados**: CodeAgent, SystemAgent, EchoAgent, etc.
+
+### TTS (Text-to-Speech)
+
+Este módulo implementa capacidades de voz para los agentes:
+
+- **Interfaz común**: AgentTTSInterface que conecta agentes con sistemas TTS
+- **Implementaciones**: SimpleTTSManager (gTTS) y TTSManager (MAYA/ElevenLabs)
+- **Gestión de archivos**: Sistema de caché y limpieza automática
 
 ### Core MCP (`mcp/`)
 

@@ -33,6 +33,9 @@ structure:
       - "base"           # Agentes base y fundamentales
         # base.py - Clase base para todos los agentes
         # agent_communication.py - Sistema de comunicación entre agentes
+      - "main_assistant"  # Agente principal para interacción centralizada
+        # main_assistant.py - Implementación del asistente principal
+        # README.md - Documentación del MainAssistant 
       - "specialized"    # Agentes especializados como CodeAgent y SystemAgent
         # code_agent.py - Agente especializado en código
         # system_agent.py - Agente para interactuar con el sistema
@@ -50,6 +53,13 @@ structure:
       - "core"           # Núcleo del sistema de modelos (ModelManager, ResourceDetector)
       - "cloud"          # Modelos de IA en la nube (OpenAI, Anthropic)
       - "local"          # Modelos locales (archivos .gguf)
+    - "tts"              # Sistema Text-to-Speech
+      - "core"           # Componentes centrales del TTS
+        # agent_tts_interface.py - Interfaz TTS para agentes
+        # simple_tts_manager.py - Implementación con gTTS
+        # tts_manager.py - Implementación con MAYA/ElevenLabs
+        # file_manager.py - Gestión de archivos de audio
+      - "temp"           # Almacenamiento temporal de archivos de audio
     - "api"              # API central y endpoints
     - "config"           # Archivos de configuración
     - "utils"            # Utilidades generales
@@ -59,6 +69,8 @@ structure:
       - "mcp"            # Ejemplos de uso del MCP
       - "models"         # Ejemplos de uso de modelos
       - "agents"         # Ejemplos de uso de agentes
+        - "main_assistant" # Ejemplos de MainAssistant
+      - "tts"            # Ejemplos de uso del sistema TTS
       - "memory"         # Ejemplos de uso del sistema de memoria
       - "integration"    # Ejemplos de integración entre componentes
 
@@ -170,12 +182,15 @@ api:
     - "model_controller"
     - "memory_controller"
     - "mcp_controller"    # Nuevo controlador para MCP
+    - "tts_controller"    # Controlador para TTS
   endpoints:
     - "/agents/{id}/execute"
     - "/models/{name}/load"
     - "/memory/save"
     - "/mcp/servers"       # Nuevo endpoint para listar servidores MCP
     - "/mcp/connect"       # Nuevo endpoint para conectar a un servidor MCP
+    - "/tts/generate"      # Endpoint para generar audio
+    - "/tts/voices"        # Endpoint para listar voces disponibles
 
 # Patrones de arquitectura
 architecture:
@@ -192,6 +207,8 @@ architecture:
       description: "Patrón observador para la comunicación entre agentes"
     - name: "Strategy Pattern"
       description: "Patrón estrategia para seleccionar comportamientos en tiempo de ejecución"
+    - name: "Centralized Hub Architecture"
+      description: "Arquitectura de hub centralizado para MainAssistant como punto único de interacción"
 
 # Configuración de MCP
 mcp:
@@ -256,6 +273,13 @@ config_files:
       - "clients"    # Configuración de clientes
       - "global"     # Configuración global
     format: "yaml"
+  tts_config:
+    path: "config/tts_config.yaml"
+    sections:
+      - "voices"     # Configuración de voces
+      - "file_management" # Configuración de gestión de archivos
+      - "providers"  # Configuración de proveedores TTS
+    format: "yaml"
 
 # Configuración de modelos
 models:
@@ -293,6 +317,42 @@ models:
     cloud:
       format: "standard"  # Formato más simple
 
+# Configuración de TTS
+tts:
+  providers:
+    - name: "google_tts"     # Google Text-to-Speech (gTTS)
+      enabled: true
+      default: true
+      class: "SimpleTTSManager"
+    - name: "elevenlabs"     # ElevenLabs TTS
+      enabled: false
+      class: "TTSManager"
+  file_management:
+    temp_dir: "tts/temp"
+    max_size_mb: 100
+    max_age_hours: 24
+    cleanup_interval_minutes: 60
+    enable_auto_cleanup: true
+    cache_enabled: true
+  voices:
+    default: "Carlos"
+    available:
+      - "Carlos"
+      - "Jorge"
+      - "Enrique"
+      - "Diego"
+      - "Sofía"
+      - "Francisca"
+    agent_defaults:
+      "main_assistant": "Carlos"
+      "echo_agent": "Jorge"
+      "code_agent": "Enrique"
+      "system_agent": "Diego"
+  playback:
+    engine: "pygame"
+    auto_play: true
+    volume: 1.0
+
 # Reglas de agentes
 agents:
   base:
@@ -306,6 +366,9 @@ agents:
       - "processing → error"
       - "error → idle"
   types:
+    - name: "MainAssistant"
+      description: "Agente principal centralizado que coordina todos los agentes"
+      capabilities: ["delegation", "orchestration", "conversation"]
     - name: "EchoAgent"
       description: "Agente básico que repite lo que recibe (demo)"
       capabilities: ["echo", "test"]
@@ -364,6 +427,15 @@ test_rules:
     - "integration"
     - "load"
     - "security"
+  tts_tests:
+    - name: "TestVoiceGeneration"
+      description: "Pruebas de generación de audio con distintas voces"
+    - name: "TestVoicePlayback"
+      description: "Pruebas de reproducción de audio"
+    - name: "TestFileManagement"
+      description: "Pruebas de gestión de archivos temporales"
+    - name: "TestCaching"
+      description: "Pruebas de sistema de caché para audio"
   memory_tests:
     - name: "TestBasicMemoryOperations"
       description: "Pruebas básicas de CRUD de memoria"
@@ -373,6 +445,13 @@ test_rules:
       description: "Pruebas de serialización y deserialización de estado"
     - name: "TestSearch"
       description: "Pruebas de búsqueda y recuperación"
+  agent_tests:
+    - name: "TestMainAssistantDelegation"
+      description: "Pruebas de delegación del MainAssistant"
+    - name: "TestAgentCommunication"
+      description: "Pruebas de comunicación entre agentes"
+    - name: "TestTTSIntegration"
+      description: "Pruebas de integración de TTS con agentes"
   patterns:
     - name: "TemporaryDirectorySetup" 
       description: "Crear directorios temporales para pruebas aisladas"
@@ -427,8 +506,14 @@ temp_files:
     - ".pyo"           # Archivos optimizados de Python
     - ".sqlite"        # Bases de datos SQLite
     - ".db"            # Otras bases de datos
+    - ".mp3"           # Archivos de audio TTS
   directories:
     - "__pycache__"    # Directorio de caché de Python
     - "logs"           # Directorio de logs
     - "venv"           # Entorno virtual de Python
     - ".venv"          # Entorno virtual alternativo
+    - "tts/temp"       # Archivos temporales de TTS
+  cleanup:
+    tts_files:
+      max_age_hours: 24
+      max_size_mb: 100
