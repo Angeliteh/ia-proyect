@@ -8,6 +8,14 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional
 
+# Importación del TTS - lo hacemos dentro de un try para evitar errores si no está instalado
+TTS_AVAILABLE = False
+try:
+    from tts.core.agent_tts_interface import AgentTTSInterface
+    TTS_AVAILABLE = True
+except ImportError:
+    pass
+
 class AgentResponse:
     """
     Standard response structure for all agents.
@@ -48,6 +56,7 @@ class BaseAgent(ABC):
         description: Detailed description of the agent's capabilities
         logger: Logger instance for this agent
         memory_manager: Optional memory manager for persistent memory
+        tts_interface: Optional interface for Text-to-Speech capabilities
     """
     
     def __init__(self, agent_id: str, config: Dict):
@@ -75,6 +84,32 @@ class BaseAgent(ABC):
         
         # Memory-related attributes
         self.memory_manager = None
+        
+        # TTS-related attributes
+        self.tts_interface = None
+        self.use_tts = config.get("use_tts", False)
+        if self.use_tts:
+            self._setup_tts()
+    
+    def _setup_tts(self):
+        """
+        Configure Text-to-Speech capabilities for this agent.
+        
+        This will create a TTS interface if TTS is available and enabled.
+        """
+        if not TTS_AVAILABLE:
+            self.logger.warning(f"TTS requested for agent '{self.name}' but TTS module not available")
+            return
+        
+        try:
+            self.tts_interface = AgentTTSInterface()
+            self.logger.info(f"Agent '{self.name}' initialized TTS capabilities")
+        except Exception as e:
+            self.logger.error(f"Error setting up TTS interface: {e}")
+    
+    def has_tts(self) -> bool:
+        """Check if this agent has TTS capabilities enabled."""
+        return self.tts_interface is not None
     
     def setup_memory(self, memory_config=None, shared_memory_manager=None):
         """
@@ -161,88 +196,67 @@ class BaseAgent(ABC):
         except Exception as e:
             self.logger.error(f"Error storing memory: {e}")
             return None
-            
-    def recall(self, query=None, memory_type=None, limit=5, min_importance=0.0):
+    
+    def recall(self, query=None, memory_type=None, limit=5, threshold=0.0, metadata_filter=None):
         """
-        Retrieve information from the agent's memory.
+        Recall information from the agent's memory.
         
         Args:
-            query: Optional search query
-            memory_type: Optional type filter
-            limit: Maximum number of memories to return
-            min_importance: Minimum importance threshold
+            query: The query to search for
+            memory_type: Type of memory to search
+            limit: Maximum number of results
+            threshold: Minimum relevance threshold
+            metadata_filter: Filter memories by metadata
             
         Returns:
-            List of matching memories, or empty list if none found or no memory available
+            List of memory items matching the query
         """
         if not self.has_memory():
             self.logger.debug(f"Cannot recall - no memory manager available")
             return []
-            
+        
+        # Prepare metadata filter - always include this agent's ID
+        meta_filter = metadata_filter or {}
+        
+        # Don't limit to agent ID unless specifically requested
+        # This allows cross-agent memory search by default
+        if meta_filter.get("agent_id", None) is not None:
+            meta_filter["agent_id"] = self.agent_id
+        
         try:
-            # Si no hay consulta, solo devolver por tipo de memoria
-            if not query:
-                memories = self.memory_manager.query_memories(
+            # Try semantic search first
+            if query:
+                results = self.memory_manager.search_memories(
+                    query=query,
                     memory_type=memory_type,
-                    min_importance=min_importance,
-                    limit=limit
+                    limit=limit,
+                    threshold=threshold,
+                    metadata=meta_filter
                 )
-                self.logger.debug(f"Recalled {len(memories)} memories by type {memory_type}")
-                return memories
                 
-            # Estrategia 1: Búsqueda directa con la consulta completa
-            memories = self.memory_manager.query_memories(
+                # If we got results, return them
+                if results and len(results) > 0:
+                    return results
+                    
+                # Otherwise, try keyword search as fallback
+                self.logger.debug(f"Semantic search returned no results, trying keyword search")
+                results = self.memory_manager.search_memories_by_keyword(
+                    keywords=query.split(),
+                    memory_type=memory_type,
+                    limit=limit,
+                    metadata=meta_filter
+                )
+                return results
+            
+            # If no query provided, get recent memories
+            return self.memory_manager.get_recent_memories(
                 memory_type=memory_type,
-                min_importance=min_importance,
-                content_query=query,
-                limit=limit
+                limit=limit,
+                metadata=meta_filter
             )
             
-            # Si encontramos resultados, devolver
-            if memories:
-                self.logger.debug(f"Recalled {len(memories)} memories matching '{query}'")
-                return memories
-                
-            # Estrategia 2: Si no hay resultados y la consulta tiene múltiples palabras,
-            # probar con palabras clave individuales
-            words = query.lower().split()
-            if len(words) > 1:
-                self.logger.debug(f"No memories found with full query, trying individual keywords")
-                
-                # Extraer palabras clave (excluyendo palabras comunes)
-                stop_words = {
-                    "a", "an", "the", "and", "or", "but", "in", "on", "at", "to", "for", "with", "by",
-                    "about", "as", "of", "que", "cómo", "para", "por", "con", "de", "el", "la", "los", "las",
-                    "un", "una", "unos", "unas", "en", "es", "son", "del", "me", "su", "sus"
-                }
-                keywords = [word for word in words if word not in stop_words and len(word) > 2]
-                
-                # Si no hay palabras clave sustanciales, usar todas las palabras
-                if not keywords:
-                    keywords = words
-                
-                # Intentar con cada palabra clave individualmente
-                for keyword in keywords:
-                    # Solo buscar con palabras de al menos 3 caracteres
-                    if len(keyword) < 3:
-                        continue
-                        
-                    keyword_memories = self.memory_manager.query_memories(
-                        memory_type=memory_type,
-                        min_importance=min_importance,
-                        content_query=keyword,
-                        limit=limit
-                    )
-                    
-                    if keyword_memories:
-                        self.logger.debug(f"Found {len(keyword_memories)} memories with keyword '{keyword}'")
-                        return keyword_memories
-            
-            # No se encontraron memorias con ninguna estrategia
-            self.logger.debug(f"No memories found matching '{query}'")
-            return []
         except Exception as e:
-            self.logger.error(f"Error recalling memories: {e}")
+            self.logger.error(f"Error recalling from memory: {e}")
             return []
     
     def forget(self, memory_id):
@@ -266,6 +280,63 @@ class BaseAgent(ABC):
         except Exception as e:
             self.logger.error(f"Error forgetting memory: {e}")
             return False
+    
+    def _process_tts_response(self, response: AgentResponse, context: Optional[Dict] = None) -> AgentResponse:
+        """
+        Process a response through the TTS system if enabled.
+        
+        Args:
+            response: The agent response to process
+            context: The context that was provided with the query
+            
+        Returns:
+            The original response with TTS metadata if successful
+        """
+        # Check if TTS is enabled and available
+        if not self.has_tts():
+            return response
+        
+        # Check if context explicitly disables TTS
+        context_dict = context or {}
+        if context_dict.get("use_tts", self.use_tts) is False:
+            return response
+        
+        # Get TTS parameters from context if available
+        tts_params = context_dict.get("tts_params", {})
+        
+        # Auto-play audio if requested in context
+        play_immediately = context_dict.get("play_audio", False)
+        
+        try:
+            # Generate TTS output
+            tts_result = self.tts_interface.process_response(
+                text=response.content,
+                agent_name=self.name,
+                tts_params=tts_params,
+                play_immediately=play_immediately
+            )
+            
+            # Add TTS information to response metadata
+            if tts_result.get("success", False):
+                response.metadata["tts"] = {
+                    "audio_file": tts_result.get("audio_file"),
+                    "voice": tts_result.get("voice"),
+                    "success": True
+                }
+            else:
+                response.metadata["tts"] = {
+                    "success": False,
+                    "error": tts_result.get("error", "Unknown TTS error")
+                }
+                
+        except Exception as e:
+            self.logger.error(f"Error processing TTS response: {e}")
+            response.metadata["tts"] = {
+                "success": False,
+                "error": str(e)
+            }
+            
+        return response
     
     @abstractmethod
     async def process(self, query: str, context: Optional[Dict] = None) -> AgentResponse:
@@ -303,7 +374,9 @@ class BaseAgent(ABC):
             "name": self.name,
             "description": self.description,
             "capabilities": self.get_capabilities(),
-            "state": self.state
+            "state": self.state,
+            "has_memory": self.has_memory(),
+            "has_tts": self.has_tts()
         }
     
     def set_state(self, new_state: str) -> bool:
@@ -354,34 +427,45 @@ class BaseAgent(ABC):
         self._comm_registered = True
         self.logger.info(f"Agent {self.agent_id} registered with communicator")
     
-    async def _handle_message(self, message) -> None:
+    async def _handle_message(self, message: Dict) -> Optional[Dict]:
         """
-        Handle an incoming message by processing it as a query.
+        Handle a message received from the communicator.
+        
+        This is a private method that should not be called directly.
+        It's registered with the communicator to handle incoming messages.
         
         Args:
-            message: The Message object to handle
+            message: The message to handle
+            
+        Returns:
+            Response message or None
         """
-        # Import here to avoid circular imports
-        from .agent_communication import Message, MessageType
-        
-        self.logger.info(f"Handling message from {message.sender_id}: {message.content[:50]}...")
-        
-        # Process the message as a query
-        response = await self.process(message.content, message.context)
-        
-        # Create a response message
-        response_msg = message.create_response(
-            content=response.content,
-            context=response.metadata
-        )
-        
-        # Set appropriate message type based on response status
-        if response.status != "success":
-            response_msg.msg_type = MessageType.ERROR
-        
-        # Send the response
-        from .agent_communication import communicator
-        await communicator.send_message(response_msg)
+        message_type = message.get("type")
+        if message_type == "request":
+            # Extract query and context from the message
+            query = message.get("content", "")
+            context = message.get("context", {})
+            
+            # Process the request
+            self.logger.info(f"Processing request from {message.get('sender_id')}")
+            response = await self.process(query, context)
+            
+            # Create response message
+            return {
+                "type": "response",
+                "content": response.content,
+                "metadata": response.metadata,
+                "status": response.status
+            }
+            
+        elif message_type == "notification":
+            # Just log notifications for now
+            self.logger.info(f"Received notification from {message.get('sender_id')}: {message.get('content')}")
+            return None
+            
+        else:
+            self.logger.warning(f"Received unknown message type: {message_type}")
+            return None
     
     async def send_request_to_agent(
         self, 

@@ -100,6 +100,11 @@ class EchoAgent(BaseAgent):
                 }
             )
         
+        # Procesar respuesta a través del TTS si está habilitado
+        if self.has_tts() and context and context.get("use_tts", self.use_tts):
+            self.logger.info(f"Procesando respuesta TTS para: {response_content[:30]}...")
+            response = self._process_tts_response(response, context)
+        
         self.set_state("idle")
         return response
     
@@ -160,32 +165,4 @@ class EchoAgent(BaseAgent):
         Returns:
             List containing the 'echo' capability
         """
-        return ["echo"]
-    
-    async def _handle_message(self, message: Message) -> None:
-        """
-        Implementación directa para manejar mensajes entrantes.
-        Esta sobrescribe el método de la clase base para mayor eficiencia.
-        
-        Args:
-            message: El mensaje entrante para procesar
-        """
-        self.logger.info(f"ECHO AGENT recibió mensaje: {message.content[:50]}...")
-        
-        # Procesar la consulta
-        response = await self.process(message.content, message.context)
-        
-        # Crear un mensaje de respuesta
-        response_msg = message.create_response(
-            content=response.content,
-            context=response.metadata
-        )
-        
-        # Establecer el tipo de mensaje adecuado según el estado de la respuesta
-        if response.status != "success":
-            response_msg.msg_type = MessageType.ERROR
-        
-        # Enviar la respuesta directamente
-        from .agent_communication import communicator
-        self.logger.info(f"ECHO AGENT enviando respuesta: {response.content[:50]}...")
-        await communicator.send_message(response_msg) 
+        return ["echo", "tts_enabled" if self.has_tts() else "tts_disabled"] 
