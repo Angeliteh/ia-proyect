@@ -1,5 +1,5 @@
 {
-  "last_updated": "2025-03-31T16:05:42.897740",
+  "last_updated": "2025-03-31T17:32:20.351548",
   "files": {
     "tts_es_-1248113702919262210.mp3": {
       "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-1248113702919262210.mp3",
@@ -273,6 +273,198 @@
       "usage_count": 1,
       "metadata": {
         "text": "Soy Asistente Principal. Resultados encontrados:\n1. Los gatos dom\u00e9sticos (Felis catus) son mam\u00edferos...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-2037011439741927427.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-2037011439741927427.mp3",
+      "hash": "2b52b3f4401ac8640289cf3c0833daef",
+      "created_at": "2025-03-31T16:32:39.885073",
+      "last_used": "2025-03-31T16:52:13.178279",
+      "usage_count": 6,
+      "metadata": {
+        "text": "Soy AssistantCentral. Hola, soy AssistantCentral, tu asistente personal. \u00bfEn qu\u00e9 puedo ayudarte hoy?",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-1176470381780313856.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-1176470381780313856.mp3",
+      "hash": "b9ea599f64e94a4bac1bc058ca2863f2",
+      "created_at": "2025-03-31T16:32:50.336942",
+      "last_used": "2025-03-31T16:32:50.339392",
+      "usage_count": 2,
+      "metadata": {
+        "text": "Soy AssistantCentral. No encontr\u00e9 recuerdos que coincidan con '\u00bfQu\u00e9 sabes sobre Python?'",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-2132152969086419969.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-2132152969086419969.mp3",
+      "hash": "954ad31d6e2350fb6bab718397d0569b",
+      "created_at": "2025-03-31T16:33:00.949266",
+      "last_used": "2025-03-31T16:33:00.949266",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy AssistantCentral. No estoy seguro de c\u00f3mo manejar esa solicitud directamente. D\u00e9jame intentar de...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_280386746011255968.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_280386746011255968.mp3",
+      "hash": "51ab1688a94a8958681b8cae408691e5",
+      "created_at": "2025-03-31T16:45:55.153962",
+      "last_used": "2025-03-31T16:52:23.128175",
+      "usage_count": 4,
+      "metadata": {
+        "text": "Soy AssistantCentral. No encontr\u00e9 informaci\u00f3n sobre '\u00bfQu\u00e9 sabes sobre Python?' en mi memoria.",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-1866959688402142976.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-1866959688402142976.mp3",
+      "hash": "e8a23ebe46c2f36b3f3407463602bc20",
+      "created_at": "2025-03-31T16:46:04.219956",
+      "last_used": "2025-03-31T16:46:04.222961",
+      "usage_count": 2,
+      "metadata": {
+        "text": "Soy AssistantCentral. Agent code_assistant not found",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_1900400960680240641.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_1900400960680240641.mp3",
+      "hash": "d495a3398d7dfd176127e9ad6f0caca2",
+      "created_at": "2025-03-31T16:46:14.480603",
+      "last_used": "2025-03-31T16:46:14.482602",
+      "usage_count": 2,
+      "metadata": {
+        "text": "Soy AssistantCentral. Informaci\u00f3n encontrada en mi memoria:\n\n1. La inteligencia artificial es la sim...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_27406840230239234.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_27406840230239234.mp3",
+      "hash": "ac543c775673886a8ab47ac3677e621b",
+      "created_at": "2025-03-31T16:47:04.265585",
+      "last_used": "2025-03-31T16:47:04.265585",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy AssistantCentral. No encontr\u00e9 informaci\u00f3n sobre 'Mu\u00e9strame informaci\u00f3n sobre patrones de dise\u00f1o'...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_867061357871418370.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_867061357871418370.mp3",
+      "hash": "1d666f490ff2f42bc4f53c80b82e252e",
+      "created_at": "2025-03-31T16:52:34.999295",
+      "last_used": "2025-03-31T16:52:34.999295",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy AssistantCentral. Informaci\u00f3n encontrada en mi memoria:\n\n1. Python es un lenguaje de programaci\u00f3...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-1147161331624567809.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-1147161331624567809.mp3",
+      "hash": "3c8118e93604e84cd3506a44dd0d7e0a",
+      "created_at": "2025-03-31T17:06:02.442764",
+      "last_used": "2025-03-31T17:06:02.445756",
+      "usage_count": 2,
+      "metadata": {
+        "text": "Soy AssistantCentral. Entendido. memory",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_1529067874822478850.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_1529067874822478850.mp3",
+      "hash": "eb5b9b029b99bb290b81eea25170e70c",
+      "created_at": "2025-03-31T17:06:22.446865",
+      "last_used": "2025-03-31T17:06:22.446865",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy AssistantCentral. Entendido. search",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_1486876939593335809.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_1486876939593335809.mp3",
+      "hash": "dd4eb0817927fe3e6464243c61c63be7",
+      "created_at": "2025-03-31T17:28:08.259746",
+      "last_used": "2025-03-31T17:28:08.262746",
+      "usage_count": 2,
+      "metadata": {
+        "text": "Soy V.I.O.. Hey, \u00bfqu\u00e9 tal? Soy V.I.O., tu asistente personal. \u00bfEn qu\u00e9 puedo echarte una mano hoy?",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-345241420030968835.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-345241420030968835.mp3",
+      "hash": "ae05ffd9f45dda5fe5422a537ec08126",
+      "created_at": "2025-03-31T17:28:39.582490",
+      "last_used": "2025-03-31T17:28:39.585020",
+      "usage_count": 2,
+      "metadata": {
+        "text": "Soy V.I.O.. Informaci\u00f3n encontrada en mi memoria:\n\n1. V.I.O. (Virtual Intelligence Operator) es un s...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-785609699404263552.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-785609699404263552.mp3",
+      "hash": "4582181d001f50ded86eb53d7743ac53",
+      "created_at": "2025-03-31T17:29:46.875054",
+      "last_used": "2025-03-31T17:29:46.879053",
+      "usage_count": 2,
+      "metadata": {
+        "text": "Soy V.I.O.. No encontr\u00e9 informaci\u00f3n sobre '\u00bfQu\u00e9 sabes sobre Python?' en mi memoria.",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-756792009823828481.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-756792009823828481.mp3",
+      "hash": "1814dcfcf2c699eb243b88c8d72c87b8",
+      "created_at": "2025-03-31T17:30:05.828594",
+      "last_used": "2025-03-31T17:30:05.832595",
+      "usage_count": 2,
+      "metadata": {
+        "text": "Soy V.I.O.. Informaci\u00f3n encontrada en mi memoria:\n\n1. Python es un lenguaje de programaci\u00f3n interpre...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_1367342513308381185.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_1367342513308381185.mp3",
+      "hash": "17bf70b25387748766dbd215ceec4502",
+      "created_at": "2025-03-31T17:31:01.987000",
+      "last_used": "2025-03-31T17:31:01.988504",
+      "usage_count": 2,
+      "metadata": {
+        "text": "Soy V.I.O.. Informaci\u00f3n encontrada en mi memoria:\n\n1. La inteligencia artificial es la simulaci\u00f3n de...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-286353990429468161.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-286353990429468161.mp3",
+      "hash": "78b8ca2b2b7a4a8619a6c191aeb273fe",
+      "created_at": "2025-03-31T17:32:20.351548",
+      "last_used": "2025-03-31T17:32:20.351548",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy V.I.O.. No encontr\u00e9 informaci\u00f3n sobre 'Mu\u00e9strame informaci\u00f3n sobre patrones de dise\u00f1o' en mi mem...",
         "voice_id": "es-male-1",
         "lang_code": "es"
       }

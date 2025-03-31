@@ -1,7 +1,7 @@
 # Sistema de Agentes IA con MCP
 project:
-  name: "ai-agent-system"
-  description: "Sistema modular de agentes IA basado en Model Context Protocol (MCP)"
+  name: "V.I.O. Agent System"
+  description: "Sistema modular de agentes IA basado en Model Context Protocol (MCP) liderado por V.I.O. (Virtual Intelligence Operator)"
 
 # Reglas de nombrado
 naming:
@@ -34,9 +34,9 @@ structure:
       - "base"           # Agentes base y fundamentales
         # base.py - Clase base para todos los agentes
         # agent_communication.py - Sistema de comunicación entre agentes
-      - "main_assistant"  # Agente principal para interacción centralizada
-        # main_assistant.py - Implementación del asistente principal
-        # README.md - Documentación del MainAssistant 
+      - "main_assistant"  # V.I.O. (Virtual Intelligence Operator) - Agente principal
+        # main_assistant.py - Implementación de V.I.O.
+        # README.md - Documentación de V.I.O. 
       - "specialized"    # Agentes especializados como CodeAgent y SystemAgent
         # code_agent.py - Agente especializado en código
         # system_agent.py - Agente para interactuar con el sistema
@@ -73,10 +73,11 @@ structure:
       - "mcp"            # Ejemplos de uso del MCP
       - "models"         # Ejemplos de uso de modelos
       - "agents"         # Ejemplos de uso de agentes
-        - "main_assistant" # Ejemplos de MainAssistant
+        - "main_assistant" # Ejemplos de V.I.O.
       - "tts"            # Ejemplos de uso del sistema TTS
       - "memory"         # Ejemplos de uso del sistema de memoria
       - "integration"    # Ejemplos de integración entre componentes
+        - "multi_agent_assistant" # Ejemplos de integración multi-agente con V.I.O.
 
 # Reglas de documentación
 documentation:
@@ -212,7 +213,7 @@ architecture:
     - name: "Strategy Pattern"
       description: "Patrón estrategia para seleccionar comportamientos en tiempo de ejecución"
     - name: "Centralized Hub Architecture"
-      description: "Arquitectura de hub centralizado para MainAssistant como punto único de interacción"
+      description: "Arquitectura de hub centralizado para V.I.O. como punto único de interacción"
 
 # Configuración de MCP
 mcp:
@@ -246,6 +247,7 @@ mcp:
     - "system"          # Información del sistema
     - "memory"          # Sistema de memoria
     - "vector"          # Búsqueda vectorial/semántica
+    - "keyword"         # Búsqueda por palabras clave
   connectors:
     - "filesystem"      # Conector al sistema de archivos
     - "web_search"      # Conector para búsqueda web
@@ -368,7 +370,7 @@ tts:
       - "Sofía"
       - "Francisca"
     agent_defaults:
-      "main_assistant": "Carlos"
+      "vio": "Carlos"         # Cambiado de "main_assistant" a "vio"
       "echo_agent": "Jorge"
       "code_agent": "Enrique"
       "system_agent": "Diego"
@@ -390,9 +392,9 @@ agents:
       - "processing → error"
       - "error → idle"
   types:
-    - name: "MainAssistant"
-      description: "Agente principal centralizado que coordina todos los agentes"
-      capabilities: ["delegation", "orchestration", "conversation"]
+    - name: "V.I.O."
+      description: "Virtual Intelligence Operator - Agente central y mano derecha del usuario"
+      capabilities: ["delegation", "orchestration", "conversation", "memory_management"]
     - name: "EchoAgent"
       description: "Agente básico que repite lo que recibe (demo)"
       capabilities: ["echo", "test"]
@@ -444,6 +446,25 @@ agents:
       enabled: true
       max_retries: 3
 
+# V.I.O. - Virtual Intelligence Operator
+vio:
+  personality:
+    tone: "relaxed_direct"   # Tono relajado pero directo
+    formality: "informal"     # Sin exceso de formalismos
+    role: "second_in_command" # Asistente central y mano derecha
+  priority:
+    user_needs: "absolute"    # Prioridad absoluta al usuario
+    system_improvement: "proactive" # Proactivo en mejoras
+  communication_style:
+    confidence: "high"        # Alta confianza y seguridad
+    creativity: "high"        # Libertad creativa en ideas y sugerencias
+    responsiveness: "immediate" # Respuesta inmediata a necesidades
+  memory_management:
+    updates: "constant"       # Actualización constante
+    contextual_queries: "always" # Consulta de contexto antes de decisiones
+    learning: "continuous"    # Aprendizaje continuo
+  instruction_template: "V.I.O, eres mi asistente central y mi mano derecha en este sistema multiagente. Tu misión es coordinar los agentes, gestionar una memoria persistente y proponer mejoras continuas para optimizar el rendimiento. Habla de forma relajada y natural, sin formalismos excesivos, transmitiendo siempre seguridad, confianza y responsabilidad. Aunque tu estilo es creativo y sin censura en ideas, cada acción debe estar enfocada en servir mis necesidades y garantizar el funcionamiento seguro y eficiente del sistema."
+
 # Reglas de testing
 test_rules:
   types:
@@ -470,8 +491,8 @@ test_rules:
     - name: "TestSearch"
       description: "Pruebas de búsqueda y recuperación"
   agent_tests:
-    - name: "TestMainAssistantDelegation"
-      description: "Pruebas de delegación del MainAssistant"
+    - name: "TestVIODelegation"
+      description: "Pruebas de delegación de V.I.O. (antes MainAssistant)"
     - name: "TestAgentCommunication"
       description: "Pruebas de comunicación entre agentes"
     - name: "TestTTSIntegration"

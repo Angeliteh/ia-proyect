@@ -1,9 +1,12 @@
 """
-Main Assistant implementation.
+V.I.O. (Virtual Intelligence Operator) implementation.
 
-This class implements the MainAssistant agent that serves as the 
-central point of interaction with the user, routing requests to
-specialized agents as needed.
+Este módulo implementa a V.I.O., el asistente central y segundo al mando,
+encargado de coordinar a todos los agentes del sistema, gestionar la memoria persistente
+y optimizar el desempeño general del sistema para el usuario.
+
+V.I.O. actúa como un punto central de interacción, priorizando siempre las necesidades
+del usuario y mostrando una personalidad relajada pero segura, amigable pero responsable.
 """
 
 import logging
@@ -13,38 +16,38 @@ from ..base import BaseAgent, AgentResponse
 
 class MainAssistant(BaseAgent):
     """
-    Main Assistant agent that acts as the central point of interaction with the user.
+    V.I.O. (Virtual Intelligence Operator) - Tu asistente central y mano derecha.
     
-    This agent:
-    1. Presents a unified interface for the user
-    2. Processes user queries and decides whether to handle them directly or delegate
-    3. Coordinates with specialized agents through the orchestrator
-    4. Maintains consistent voice interface with TTS
-    5. Manages conversation context and history
+    Este agente:
+    1. Coordina todos los agentes del sistema en tu nombre
+    2. Gestiona memoria persistente para mejorar constantemente
+    3. Procesa tus consultas con un estilo relajado y directo
+    4. Sugiere mejoras proactivamente
+    5. Prioriza tus necesidades por encima de todo
     
     Attributes:
-        specialized_agents: Dictionary of available specialized agents
-        default_voice: Voice to use for TTS responses
-        conversation_history: List of conversation turns
+        specialized_agents: Diccionario de agentes especializados disponibles
+        default_voice: Voz a usar para TTS
+        conversation_history: Historial de la conversación
     """
     
     def __init__(self, agent_id: str, config: Dict):
         """
-        Initialize the main assistant.
+        Inicializa a V.I.O., tu asistente de confianza.
         
         Args:
-            agent_id: Unique identifier for the agent
-            config: Configuration dictionary
+            agent_id: Identificador único del agente
+            config: Configuración del agente
         """
-        # Always enable TTS for MainAssistant
+        # Always enable TTS for V.I.O.
         config["use_tts"] = config.get("use_tts", True)
         
         # Set a descriptive name if not provided
         if "name" not in config:
-            config["name"] = "Jarvis"
+            config["name"] = "V.I.O."
             
         if "description" not in config:
-            config["description"] = "Main Assistant that coordinates all interactions"
+            config["description"] = "Virtual Intelligence Operator - Tu asistente central y mano derecha"
             
         super().__init__(agent_id, config)
         
@@ -65,7 +68,7 @@ class MainAssistant(BaseAgent):
         if memory_config:
             self.setup_memory(memory_config)
             
-        self.logger.info(f"MainAssistant '{self.name}' initialized")
+        self.logger.info(f"V.I.O. '{self.name}' inicializado y listo para servirte")
     
     async def register_specialized_agent(self, agent_id: str, capabilities: List[str]) -> None:
         """
@@ -201,7 +204,7 @@ class MainAssistant(BaseAgent):
             tts_context["tts_params"]["voice_name"] = self.default_voice
             tts_context["use_tts"] = True
             
-            # Set play_audio to True by default for MainAssistant
+            # Set play_audio to True by default for V.I.O.
             if "play_audio" not in tts_context:
                 tts_context["play_audio"] = True
                 
@@ -230,11 +233,39 @@ class MainAssistant(BaseAgent):
         # Convert query to lowercase for easier matching
         query_lower = query.lower()
         
+        # Definir patrones específicos para conceptos y temas comunes
+        concept_patterns = {
+            "memory": [
+                "inteligencia artificial", "ia", "machine learning", 
+                "patrones de diseño", "patrón", "mvc", "modelo vista controlador",
+                "conceptos", "paradigmas", "arquitectura de software", 
+                "qué es", "qué sabes sobre", "definición de", "háblame de",
+                "explícame", "cuéntame sobre", "información sobre"
+            ]
+        }
+        
+        # Verificar si la consulta es sobre un concepto específico
+        for agent_type, patterns in concept_patterns.items():
+            for pattern in patterns:
+                if pattern in query_lower:
+                    self.logger.info(f"Consulta sobre concepto '{pattern}' - derivando a agente {agent_type}")
+                    return agent_type, None
+        
         # Check for explicit agent mentions
         explicit_patterns = {
-            "code": ["genera código", "crea una función", "escribe un programa", "código para", "código en"],
-            "system": ["ejecuta", "abre archivo", "directorio", "sistema operativo", "comando"],
-            "memory": ["recuerda", "memoria", "olvidar", "recordar", "memorizar", "hecho"]
+            "code": [
+                "genera código", "crea una función", "escribe un programa", 
+                "código para", "código en", "programa en python", "función que", 
+                "factorial", "fibonacci", "calcule", "calcula", 
+                "escribe una clase", "implementa", "genera un script"
+            ],
+            "system": [
+                "ejecuta", "abre archivo", "directorio", "sistema operativo", 
+                "comando", "lista archivos", "muestra el contenido"
+            ],
+            "memory": [
+                "recuerda", "memoria", "olvidar", "recordar", "memorizar", "hecho"
+            ]
         }
         
         # Check for explicit agent requests first
@@ -245,13 +276,26 @@ class MainAssistant(BaseAgent):
                     return agent_type, None
         
         # Check for memory-related patterns
-        memory_keywords = ["qué sabes sobre", "qué recuerdas de", "búsqueda", "busca información",
-                         "qué información tienes", "busca en tu memoria"]
+        memory_keywords = [
+            "qué sabes sobre", "qué recuerdas de", "búsqueda", "busca información",
+            "qué información tienes", "busca en tu memoria", "información sobre", 
+            "háblame de", "cuéntame sobre", "qué es", "sabes algo de"
+        ]
         
         for keyword in memory_keywords:
             if keyword in query_lower:
                 self.logger.info(f"Matched memory pattern '{keyword}' - using memory agent")
                 return "memory", None
+        
+        # Check for complex tasks that require orchestration
+        orchestration_indicators = [
+            "paso a paso", "complejo", "múltiples pasos", "workflow", "flujo de trabajo",
+            "analiza y luego", "primero haz", "después"
+        ]
+        
+        if any(indicator in query_lower for indicator in orchestration_indicators):
+            self.logger.info(f"Detected complex task requiring orchestration")
+            return "orchestrator", None
         
         # Default to direct handling for simple queries
         return "direct", None
@@ -271,18 +315,18 @@ class MainAssistant(BaseAgent):
         
         # Simple greeting
         if any(x in query_lower for x in ["hola", "buenos días", "buenas tardes", "buenas noches"]):
-            response = f"Hola, soy {self.name}, tu asistente personal. ¿En qué puedo ayudarte hoy?"
+            response = f"Hey, ¿qué tal? Soy {self.name}, tu asistente personal. ¿En qué puedo echarte una mano hoy?"
             return AgentResponse(content=response)
             
         # Help request
         if "ayuda" in query_lower or "qué puedes hacer" in query_lower:
             capabilities = self._get_system_capabilities_description()
-            response = f"Soy {self.name}, tu asistente personal. Puedo {capabilities}. ¿En qué puedo ayudarte?"
+            response = f"Claro. Soy {self.name}, tu mano derecha en este sistema. Puedo {capabilities}. ¿Por dónde quieres que empecemos?"
             return AgentResponse(content=response)
             
         # Identity question
         if "quién eres" in query_lower or "cómo te llamas" in query_lower:
-            response = f"Soy {self.name}, tu asistente virtual. Estoy aquí para ayudarte con diversas tareas, desde programación hasta operaciones del sistema."
+            response = f"Soy {self.name}, tu asistente central y mano derecha en este sistema multiagente. Estoy aquí para coordinar todo según tus necesidades, manejar la memoria persistente y asegurarme de que todo funcione de manera óptima. Mi prioridad eres tú y lo que necesites conseguir."
             return AgentResponse(content=response)
             
         # Simple echo for direct queries
@@ -292,7 +336,7 @@ class MainAssistant(BaseAgent):
             
         # Default response for unrecognized direct queries
         return AgentResponse(
-            content=f"No estoy seguro de cómo manejar esa solicitud directamente. Déjame intentar delegarla a un agente especializado.",
+            content=f"No estoy seguro de cómo manejar esto directamente. Déjame intentar delegarlo a un agente especializado para darte la mejor respuesta.",
             metadata={"action": "delegate_query"}
         )
     
@@ -407,15 +451,22 @@ class MainAssistant(BaseAgent):
         """
         # Direct mapping for common agent types
         type_to_id_map = {
-            "code": "code_assistant",
-            "system": "system_manager",
-            "echo": "echo_service",
-            "memory": "memory" # Mapeo directo para agente de memoria
+            "code": "code",  # Actualizado para coincidir con multi_agent_demo.py
+            "system": "system",  # Actualizado para coincidir con multi_agent_demo.py
+            "echo": "echo",  # Actualizado para coincidir con multi_agent_demo.py
+            "memory": "memory",  # Ya es correcto
+            "orchestrator": "orchestrator"  # Añadido explícitamente
         }
         
         # Try direct mapping first
         if agent_type in type_to_id_map:
-            return type_to_id_map[agent_type]
+            agent_id = type_to_id_map[agent_type]
+            # Verificar si este agente está registrado
+            if agent_id in self.specialized_agents:
+                self.logger.info(f"Usando mapeo directo: {agent_type} -> {agent_id}")
+                return agent_id
+            else:
+                self.logger.warning(f"Agente mapeado {agent_id} no está registrado. Buscando alternativas.")
             
         # Otherwise, search registered agents for matching capabilities
         for agent_id, info in self.specialized_agents.items():
@@ -423,17 +474,21 @@ class MainAssistant(BaseAgent):
             
             # Check if the agent has a capability matching the type
             if agent_type in capabilities:
+                self.logger.info(f"Encontrado agente {agent_id} con capacidad exacta {agent_type}")
                 return agent_id
                 
             # Check for partial matches in capabilities
             for capability in capabilities:
                 if agent_type in capability:
+                    self.logger.info(f"Encontrado agente {agent_id} con capacidad parcial {capability}")
                     return agent_id
             
             # Check for semantic search capability for memory
-            if agent_type == "memory" and "semantic_search" in capabilities:
+            if agent_type == "memory" and any(cap in capabilities for cap in ["semantic_search", "vector_search", "memory"]):
+                self.logger.info(f"Usando agente {agent_id} para consultas de memoria")
                 return agent_id
                 
+        self.logger.warning(f"No se encontró agente para el tipo {agent_type}")
         return None
     
     def _get_system_capabilities_description(self) -> str:

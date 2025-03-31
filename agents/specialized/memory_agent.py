@@ -181,74 +181,83 @@ class MemoryAgent(BaseAgent):
                 
                 # Usar búsqueda semántica o por palabras clave según se indique
                 if semantic:
-                    # Búsqueda vectorial
-                    if self.memory_system and hasattr(self.memory_system, 'mcp_client'):
-                        from mcp.core import MCPMessage, MCPAction
-                        
-                        # Crear mensaje MCP para búsqueda vectorial
-                        search_msg = MCPMessage(
-                            action=MCPAction.SEARCH,
-                            resource_type="vector",
-                            resource_path="/",
-                            data={
+                    # Usar el nuevo método de búsqueda semántica
+                    results = await self._process_semantic_search(
+                        query=query,
+                        limit=limit,
+                        threshold=threshold,
+                        memory_type=memory_type
+                    )
+                    
+                    if results:
+                        # Formatear resultados para mostrarlos
+                        formatted_results = self._format_memory_results(results)
+                        self.set_state("idle")
+                        return AgentResponse(
+                            content=formatted_results,
+                            status="success",
+                            metadata={
+                                "memory_count": len(results),
+                                "memory_used": True,
                                 "query": query,
-                                "limit": limit,
-                                "threshold": threshold,
-                                "memory_type": memory_type
+                                "threshold": threshold
                             }
                         )
+                    else:
+                        # Si no hay resultados, intentar búsqueda por palabras clave como fallback
+                        self.logger.info(f"Búsqueda semántica sin resultados, intentando por palabras clave")
+                        keyword_results = await self._process_keyword_search(
+                            query=query,
+                            limit=limit,
+                            memory_type=memory_type
+                        )
                         
-                        try:
-                            # Enviar mensaje asíncronamente
-                            response = await self.memory_system.mcp_client.send_message_async(search_msg)
-                            if response and response.success:
-                                results = response.data.get('results', [])
-                                
-                                # Formatear resultados
-                                if results:
-                                    formatted_results = self._format_memory_results(results, include_similarity=True)
-                                    self.set_state("idle")
-                                    return AgentResponse(
-                                        content=formatted_results,
-                                        status="success",
-                                        metadata={"count": len(results), "query": query}
-                                    )
-                                else:
-                                    self.set_state("idle")
-                                    return AgentResponse(
-                                        content=f"No encontré recuerdos que coincidan con '{query}'",
-                                        status="success",
-                                        metadata={"count": 0, "query": query}
-                                    )
-                            else:
-                                error_msg = response.error if response else "Error desconocido"
-                                raise ValueError(f"Error en búsqueda vectorial: {error_msg}")
-                        except Exception as e:
-                            self.logger.error(f"Error en búsqueda vectorial MCP: {str(e)}")
-                            # Intentar método alternativo
-                
-                # Búsqueda por palabras clave (o fallback si falló la búsqueda semántica)
-                memories = self.recall(
-                    query=query,
-                    memory_type=memory_type,
-                    limit=limit
-                )
-                
-                if memories:
-                    formatted_results = self._format_memory_results(memories)
-                    self.set_state("idle")
-                    return AgentResponse(
-                        content=formatted_results,
-                        status="success",
-                        metadata={"count": len(memories), "query": query}
-                    )
+                        if keyword_results:
+                            formatted_results = self._format_memory_results(keyword_results)
+                            self.set_state("idle")
+                            return AgentResponse(
+                                content=formatted_results,
+                                status="success",
+                                metadata={
+                                    "memory_count": len(keyword_results),
+                                    "memory_used": True,
+                                    "search_type": "keyword_fallback",
+                                    "query": query
+                                }
+                            )
                 else:
-                    self.set_state("idle")
-                    return AgentResponse(
-                        content=f"No encontré recuerdos que coincidan con '{query}'",
-                        status="success",
-                        metadata={"count": 0, "query": query}
+                    # Búsqueda explícita por palabras clave
+                    results = await self._process_keyword_search(
+                        query=query,
+                        limit=limit,
+                        memory_type=memory_type
                     )
+                    
+                    if results:
+                        formatted_results = self._format_memory_results(results)
+                        self.set_state("idle")
+                        return AgentResponse(
+                            content=formatted_results,
+                            status="success",
+                            metadata={
+                                "memory_count": len(results),
+                                "memory_used": True,
+                                "search_type": "keyword",
+                                "query": query
+                            }
+                        )
+                
+                # Si llegamos aquí, no se encontraron resultados
+                self.set_state("idle")
+                return AgentResponse(
+                    content=f"No encontré información sobre '{query}' en mi memoria.",
+                    status="success",
+                    metadata={
+                        "memory_count": 0,
+                        "memory_used": True,
+                        "query": query
+                    }
+                )
                 
             elif action == "answer":
                 # Responder a una pregunta basada en memoria
@@ -674,44 +683,67 @@ class MemoryAgent(BaseAgent):
             self.logger.error(traceback.format_exc())
             return False 
 
-    def _format_memory_results(self, memories, include_similarity=False):
+    def _format_memory_results(self, results: List, include_similarity: bool = False) -> str:
         """
-        Formatea resultados de memoria para presentación.
+        Formatea los resultados de la búsqueda en memoria para presentarlos al usuario.
         
         Args:
-            memories: Lista de memorias o diccionarios de memoria
-            include_similarity: Si incluir puntuación de similitud
+            results: Lista de resultados (diccionarios o objetos MemoryItem)
+            include_similarity: Si se debe incluir la puntuación de similitud
             
         Returns:
-            String formateado con los resultados
+            Texto formateado con los resultados
         """
-        if not memories:
-            return "No se encontraron resultados."
-        
-        result_lines = ["Resultados encontrados:"]
-        
-        for idx, memory in enumerate(memories):
-            # Determinar si es un objeto MemoryItem o un diccionario
-            if hasattr(memory, 'content'):
-                # Es un objeto MemoryItem
-                content = memory.content
-                memory_type = memory.memory_type
-                created_at = memory.created_at
-                similarity = getattr(memory, 'similarity', None)
-            else:
-                # Es un diccionario
-                content = memory.get('content', 'Contenido desconocido')
-                memory_type = memory.get('memory_type', 'unknown')
-                created_at = memory.get('created_at', 'fecha desconocida')
-                similarity = memory.get('similarity')
-                
-            # Formatear la línea
-            if include_similarity and similarity is not None:
-                result_lines.append(f"{idx+1}. [{similarity:.2f}] {content}")
-            else:
-                result_lines.append(f"{idx+1}. {content}")
+        if not results:
+            return "No se encontraron recuerdos relevantes."
             
-        return "\n".join(result_lines)
+        lines = ["Información encontrada en mi memoria:"]
+        
+        for i, result in enumerate(results):
+            # Verificar si es un diccionario o un objeto MemoryItem
+            if isinstance(result, dict):
+                content = result.get('content', 'Contenido desconocido')
+                similarity = result.get('similarity', None)
+                metadata = result.get('metadata', {})
+                memory_type = result.get('memory_type', 'general')
+            else:
+                # Asumir que es un objeto MemoryItem
+                content = getattr(result, 'content', 'Contenido desconocido')
+                similarity = getattr(result, 'similarity', None)
+                metadata = getattr(result, 'metadata', {})
+                memory_type = getattr(result, 'memory_type', 'general')
+            
+            # Formatear el contenido según su tipo
+            if isinstance(content, dict):
+                # Si el contenido es un diccionario, mostrarlo de forma legible
+                try:
+                    import json
+                    content_str = json.dumps(content, ensure_ascii=False, indent=2)
+                    content_str = f"\n{content_str}"
+                except:
+                    content_str = str(content)
+            else:
+                content_str = str(content)
+            
+            # Crear la línea del resultado
+            line = f"\n{i+1}. {content_str}"
+            
+            # Añadir metadatos importantes si existen
+            if metadata and isinstance(metadata, dict):
+                category = metadata.get('category')
+                if category:
+                    line += f"\n   Categoría: {category}"
+                subcategory = metadata.get('subcategory')
+                if subcategory:
+                    line += f"\n   Subcategoría: {subcategory}"
+                    
+            # Añadir puntuación de similitud si se solicita y está disponible
+            if include_similarity and similarity is not None:
+                line += f"\n   Relevancia: {similarity:.2f}"
+                
+            lines.append(line)
+            
+        return "\n".join(lines)
 
     def _generate_answer_from_memories(self, query, memories):
         """
@@ -891,4 +923,219 @@ class MemoryAgent(BaseAgent):
         else:
             content_str = str(content)
         
-        return hashlib.md5(content_str.encode()).hexdigest() 
+        return hashlib.md5(content_str.encode()).hexdigest()
+
+    async def create_memory(self, memory_data: Dict) -> str:
+        """
+        Crea una nueva memoria en el sistema.
+        
+        Args:
+            memory_data: Diccionario con los datos de la memoria, debe contener:
+                - content: Contenido de la memoria
+                - memory_type: Tipo de memoria (opcional, default: "general")
+                - importance: Importancia de 0.0 a 1.0 (opcional, default: 0.5)
+                - metadata: Metadatos adicionales (opcional)
+                - generate_embedding: Si se debe generar embedding (opcional, default: True)
+                
+        Returns:
+            ID de la memoria creada
+            
+        Raises:
+            ValueError: Si hay error al crear la memoria
+        """
+        # Verificar campos obligatorios
+        if "content" not in memory_data:
+            raise ValueError("El campo 'content' es obligatorio para crear una memoria")
+            
+        # Establecer valores por defecto
+        memory_type = memory_data.get("memory_type", "general")
+        importance = float(memory_data.get("importance", 0.5))
+        metadata = memory_data.get("metadata", {})
+        generate_embedding = memory_data.get("generate_embedding", True)
+        
+        # Añadir metadatos adicionales
+        metadata.update({
+            "source": f"agent:{self.agent_id}",
+            "created_at": datetime.now().isoformat()
+        })
+        
+        # Usar MCP si está disponible
+        if hasattr(self, 'memory_system') and hasattr(self.memory_system, 'mcp_client'):
+            from mcp.core import MCPMessage, MCPAction, MCPResource
+            
+            # Crear mensaje MCP para almacenar memoria con embedding
+            create_msg = MCPMessage(
+                action=MCPAction.CREATE,
+                resource_type=MCPResource.MEMORY,
+                resource_path="/",
+                data={
+                    "content": memory_data["content"],
+                    "memory_type": memory_type,
+                    "importance": importance,
+                    "metadata": metadata,
+                    "generate_embedding": generate_embedding
+                }
+            )
+            
+            try:
+                response = await self.memory_system.mcp_client.send_message_async(create_msg)
+                if response and response.success:
+                    memory_id = response.data.get('id')
+                    self.logger.info(f"Memoria creada con ID: {memory_id}")
+                    return memory_id
+                else:
+                    error_msg = response.error if hasattr(response, 'error') else "Error desconocido"
+                    self.logger.error(f"Error al crear memoria: {error_msg}")
+                    raise ValueError(f"Error al crear memoria: {error_msg}")
+            except Exception as e:
+                self.logger.error(f"Error en crear memoria con MCP: {str(e)}")
+                raise ValueError(f"No se pudo crear la memoria: {str(e)}")
+        else:
+            # Método alternativo usando el memory_manager directamente
+            try:
+                memory_id = self.remember(
+                    content=memory_data["content"],
+                    memory_type=memory_type,
+                    importance=importance,
+                    metadata=metadata,
+                    generate_embedding=generate_embedding
+                )
+                
+                if not memory_id:
+                    raise ValueError("No se pudo crear la memoria, ID no generado")
+                    
+                self.logger.info(f"Memoria creada con ID: {memory_id}")
+                return memory_id
+            except Exception as e:
+                self.logger.error(f"Error al crear memoria: {str(e)}")
+                raise ValueError(f"No se pudo crear la memoria: {str(e)}") 
+
+    async def _process_semantic_search(self, query: str, limit: int = 5, threshold: float = None, memory_type: str = None) -> List:
+        """
+        Procesa una búsqueda semántica usando embeddings vectoriales.
+        
+        Args:
+            query: Consulta para buscar
+            limit: Límite de resultados
+            threshold: Umbral de similitud
+            memory_type: Tipo específico de memoria a buscar
+            
+        Returns:
+            Lista de resultados de la búsqueda
+        """
+        threshold = threshold if threshold is not None else self.semantic_threshold
+        self.logger.info(f"Realizando búsqueda semántica para '{query}' con umbral {threshold}")
+        
+        # Comprobar si podemos realizar búsqueda vectorial
+        if self.memory_system and hasattr(self.memory_system, 'mcp_client'):
+            # Verificar si el query es sobre un concepto específico
+            concept_keywords = {
+                "inteligencia artificial": ["inteligencia artificial", "ia", "ai", "machine learning", "aprendizaje automático"],
+                "patrones de diseño": ["patrones", "patterns", "patrón de diseño", "design pattern", "mvc", "modelo vista controlador"],
+                "programación": ["python", "javascript", "java", "programación", "lenguaje de programación", "programming language"],
+            }
+            
+            # Verificar si es una búsqueda de concepto específico
+            actual_query = query
+            expanded_query = False
+            
+            for concept, keywords in concept_keywords.items():
+                query_words = set(query.lower().split())
+                if any(keyword in query.lower() for keyword in keywords):
+                    # Si la consulta es sobre este concepto, expandirla
+                    self.logger.info(f"Expandiendo consulta conceptual sobre {concept}")
+                    actual_query = f"{query} {concept}"
+                    expanded_query = True
+                    break
+            
+            from mcp.core import MCPMessage, MCPAction
+            
+            # Crear mensaje MCP para búsqueda vectorial
+            search_msg = MCPMessage(
+                action=MCPAction.SEARCH,
+                resource_type="vector",
+                resource_path="/",
+                data={
+                    "query": actual_query,
+                    "limit": limit,
+                    "threshold": threshold,
+                    "memory_type": memory_type
+                }
+            )
+            
+            try:
+                response = await self.memory_system.mcp_client.send_message_async(search_msg)
+                if response and response.success:
+                    results = response.data.get('results', [])
+                    self.logger.info(f"Búsqueda semántica encontró {len(results)} resultados")
+                    
+                    # Si expandimos la consulta, agregar esa información a los metadatos
+                    if expanded_query:
+                        for result in results:
+                            if "metadata" not in result:
+                                result["metadata"] = {}
+                            result["metadata"]["expanded_query"] = True
+                    
+                    return results
+                else:
+                    self.logger.warning(f"Error en búsqueda vectorial: {getattr(response, 'error', 'Desconocido')}")
+            except Exception as e:
+                self.logger.error(f"Error en búsqueda vectorial: {str(e)}")
+                
+        # Fallback a implementación básica del BaseAgent si no podemos usar MCP
+        try:
+            memories = self.recall(query=query, limit=limit, threshold=threshold, memory_type=memory_type)
+            return [memory.to_dict() for memory in memories] if memories else []
+        except Exception as e:
+            self.logger.error(f"Error en búsqueda con fallback: {str(e)}")
+            return [] 
+
+    async def _process_keyword_search(self, query: str, limit: int = 5, memory_type: str = None) -> List:
+        """
+        Procesa una búsqueda por palabras clave cuando la búsqueda semántica no da resultados.
+        
+        Args:
+            query: Consulta para buscar
+            limit: Límite de resultados
+            memory_type: Tipo específico de memoria a buscar
+            
+        Returns:
+            Lista de resultados de la búsqueda
+        """
+        self.logger.info(f"Realizando búsqueda por palabras clave para '{query}'")
+        
+        # Si tenemos acceso al cliente MCP
+        if self.memory_system and hasattr(self.memory_system, 'mcp_client'):
+            from mcp.core import MCPMessage, MCPAction
+            
+            # Crear mensaje MCP para búsqueda por palabras clave
+            search_msg = MCPMessage(
+                action=MCPAction.SEARCH,
+                resource_type="keyword",
+                resource_path="/",
+                data={
+                    "query": query,
+                    "limit": limit,
+                    "memory_type": memory_type
+                }
+            )
+            
+            try:
+                response = await self.memory_system.mcp_client.send_message_async(search_msg)
+                if response and response.success:
+                    results = response.data.get('results', [])
+                    self.logger.info(f"Búsqueda por palabras clave encontró {len(results)} resultados")
+                    return results
+                else:
+                    self.logger.warning(f"Error en búsqueda por palabras clave: {getattr(response, 'error', 'Desconocido')}")
+            except Exception as e:
+                self.logger.error(f"Error en búsqueda por palabras clave: {str(e)}")
+                
+        # Fallback a implementación básica usando BaseAgent
+        try:
+            # Aquí usamos un threshold de 0 para indicar búsqueda exacta por palabras clave
+            memories = self.recall(query=query, limit=limit, threshold=0.0, memory_type=memory_type)
+            return [memory.to_dict() for memory in memories] if memories else []
+        except Exception as e:
+            self.logger.error(f"Error en búsqueda por palabras clave con fallback: {str(e)}")
+            return [] 

@@ -1,6 +1,6 @@
-# AI Agent System
+# V.I.O. Agent System
 
-Sistema modular de agentes de Inteligencia Artificial basado en MCP (Model Context Protocol).
+Sistema modular de agentes de Inteligencia Artificial liderado por V.I.O. (Virtual Intelligence Operator) y basado en MCP (Model Context Protocol).
 
 ## Descripción
 
@@ -8,7 +8,8 @@ Este sistema permite la integración de múltiples agentes especializados que pu
 
 ## Características principales
 
-- **MainAssistant**: Punto central de interacción con el usuario que coordina todos los agentes
+- **V.I.O. (Virtual Intelligence Operator)**: Agente central y "mano derecha" del usuario que coordina todos los agentes
+- **Búsqueda Semántica y por Palabras Clave**: Sistema dual para recuperación de información en memoria
 - **TTS (Text-to-Speech)**: Capacidad de respuesta por voz usando múltiples proveedores
 - **MCP (Model Context Protocol)**: Implementación del estándar abierto de Anthropic para conectar modelos de IA con datos
 - **Arquitectura Cliente-Servidor**: Permite a los modelos acceder a datos a través de servidores MCP
@@ -27,7 +28,7 @@ ai-agent-system/
 ├── agents/                # Implementaciones de agentes
 │   ├── base.py           # Clase base para todos los agentes
 │   ├── agent_communication.py  # Sistema de comunicación entre agentes
-│   ├── main_assistant/   # Agente principal para interacción centralizada
+│   ├── main_assistant/   # V.I.O. - Virtual Intelligence Operator
 │   ├── echo_agent.py     # Agente de eco simple (para pruebas)
 │   ├── code_agent.py     # Agente especializado en tareas de código
 │   ├── system_agent.py   # Agente para interacción con el sistema
@@ -72,31 +73,37 @@ ai-agent-system/
 │   ├── mcp/              # Ejemplos de uso del MCP
 │   ├── models/           # Ejemplos de uso de modelos
 │   ├── agents/           # Ejemplos de uso de agentes
-│   │   └── main_assistant/ # Ejemplos del MainAssistant
+│   │   └── main_assistant/ # Ejemplos de V.I.O.
 │   ├── tts/              # Ejemplos de uso del sistema TTS
 │   ├── memory/           # Ejemplos de uso del sistema de memoria
 │   ├── integration/      # Tests de integración entre componentes
+│   │   └── multi_agent_assistant/ # Demo de integración multi-agente
 │   └── README.md         # Guía para ejecutar ejemplos y tests
 └── data/                 # Directorio para datos y recursos
 ```
 
-## Arquitectura centralizada con MainAssistant
+## V.I.O. - Virtual Intelligence Operator
 
-El sistema implementa una arquitectura centralizada a través del componente `MainAssistant`, que actúa como punto único de interacción con el usuario y coordina todos los agentes especializados:
+V.I.O. es el componente central del sistema, actuando como el asistente principal y "mano derecha" del usuario:
 
-### Características del MainAssistant
+### Características de V.I.O.
 
-- **Interacción unificada**: Presenta una interfaz consistente y coherente para el usuario
+- **Prioridad absoluta al usuario**: La función primordial de V.I.O. es servir al usuario
+- **Personalidad adaptada**: Comunicación relajada pero directa, sin formalismos innecesarios
 - **Delegación inteligente**: Analiza las consultas y las redirige al agente especializado más adecuado
 - **Coordinación con el orquestador**: Permite resolver tareas complejas que requieren múltiples agentes
+- **Memoria persistente**: Actualiza constantemente información sobre misión, instrucciones y contexto
+- **Mejora proactiva**: Sugiere mejoras en su funcionamiento y en el sistema general
 - **TTS integrado**: Genera respuestas auditivas consistentes con una voz personalizable
-- **Gestión de contexto**: Mantiene el contexto de la conversación y registro histórico
-- **Memoria persistente**: Almacena interacciones para referencias futuras
+
+### Instrucción consolidada para V.I.O.
+
+> "V.I.O, eres mi asistente central y mi mano derecha en este sistema multiagente. Tu misión es coordinar los agentes, gestionar una memoria persistente y proponer mejoras continuas para optimizar el rendimiento. Habla de forma relajada y natural, sin formalismos excesivos, transmitiendo siempre seguridad, confianza y responsabilidad. Aunque tu estilo es creativo y sin censura en ideas, cada acción debe estar enfocada en servir mis necesidades y garantizar el funcionamiento seguro y eficiente del sistema."
 
 ### Flujo de trabajo centralizado
 
-1. El usuario interactúa con el **MainAssistant** mediante consultas de texto
-2. MainAssistant analiza la consulta para determinar su naturaleza
+1. El usuario interactúa con **V.I.O.** mediante consultas de texto
+2. V.I.O. analiza la consulta para determinar su naturaleza
 3. Para consultas simples, responde directamente
 4. Para consultas especializadas, delega al agente adecuado (CodeAgent, SystemAgent, etc.)
 5. Para tareas complejas, coordina con el OrchestratorAgent para dividir el trabajo
@@ -105,27 +112,51 @@ El sistema implementa una arquitectura centralizada a través del componente `Ma
 Ejemplo de uso:
 
 ```python
-from agents import MainAssistant
+from agents.main_assistant import MainAssistant
 
-# Crear el asistente principal
-main_assistant = MainAssistant(
-    agent_id="jarvis",
+# Crear V.I.O.
+vio = MainAssistant(
+    agent_id="vio",
     config={
-        "name": "Jarvis",
-        "description": "Asistente principal centralizado",
+        "name": "V.I.O.",
+        "description": "Virtual Intelligence Operator - Tu asistente central",
         "use_tts": True,
         "default_voice": "Carlos"
     }
 )
 
-# Usar el asistente para procesar consultas
-response = await main_assistant.process(
+# Usar V.I.O. para procesar consultas
+response = await vio.process(
     "Escribe un programa en Python para calcular el factorial de un número"
 )
 
-# El MainAssistant delegará automáticamente al CodeAgent
+# V.I.O. delegará automáticamente al CodeAgent
 print(response.content)
 ```
+
+## Sistema de Memoria y Búsqueda
+
+El sistema incluye capacidades avanzadas de almacenamiento y recuperación de información:
+
+### Características del sistema de memoria
+
+- **Múltiples tipos de memoria**: Corto plazo, largo plazo, episódica y semántica
+- **Búsqueda dual**: Semántica (basada en vectores) y por palabras clave
+- **Fallback automático**: Si la búsqueda semántica falla, intenta con búsqueda por palabras clave
+- **Embeddings vectoriales**: Conversión de texto a vectores para búsqueda semántica
+- **Metadatos flexibles**: Permite almacenar información adicional junto con las memorias
+- **Persistencia SQLite**: Almacenamiento duradero entre sesiones
+- **Gestión de importancia**: Priorización de información según relevancia
+
+### Búsqueda por Palabras Clave
+
+La búsqueda por palabras clave es un complemento esencial a la búsqueda semántica:
+
+- **Funciona sin embeddings**: No requiere vectorización del contenido
+- **Escaneo de contenido y metadatos**: Busca en todo el texto y metadatos de las memorias
+- **Puntuación de relevancia**: Basada en cantidad de palabras clave coincidentes
+- **Umbral mínimo configurable**: Requiere una cantidad mínima de coincidencias
+- **Integración con MCP**: Disponible a través del protocolo MCP como recurso "keyword"
 
 ## Sistema Text-to-Speech (TTS)
 
@@ -157,15 +188,13 @@ tts_manager = SimpleTTSManager()
 
 # Generar audio a partir de texto
 audio_file = tts_manager.text_to_speech(
-    text="Hola, soy un asistente virtual.",
+    text="Hola, soy V.I.O., tu asistente virtual.",
     voice_name="Carlos"
 )
 
 # Reproducir el audio
 tts_manager.play_audio(audio_file)
 ```
-
-Para más información, consulte los [ejemplos de TTS](./examples/tts/).
 
 ## Acerca del Model Context Protocol (MCP)
 
@@ -198,7 +227,6 @@ Para más detalles, consulte [la documentación de modelos](./models/README.md).
 ## Requisitos
 
 - Python 3.9+
-- MongoDB (para persistencia de memoria documental)
 - Para modelos locales:
   - llama-cpp-python
   - (Opcional) NVIDIA GPU con drivers CUDA para aceleración
@@ -213,8 +241,8 @@ Para más detalles, consulte [la documentación de modelos](./models/README.md).
 1. Clonar el repositorio:
 
 ```bash
-git clone https://github.com/tu-usuario/ai-agent-system.git
-cd ai-agent-system
+git clone https://github.com/tu-usuario/vio-agent-system.git
+cd vio-agent-system
 ```
 
 2. Instalar dependencias:
@@ -238,19 +266,16 @@ Para usar modelos locales, descarga los archivos GGUF en el directorio `models/l
 
 ## Uso
 
-### MainAssistant (Interfaz centralizada)
+### Demo Completa Multi-Agente
 
-Para interactuar con el sistema a través del asistente principal:
+Para ejecutar una demostración completa de integración con todos los agentes:
 
 ```bash
-# Modo interactivo con el MainAssistant
-python examples/agents/main_assistant/main_assistant_example.py --interactive
+# Ejecutar la demo multi-agente con V.I.O.
+python examples/integration/multi_agent_assistant/multi_agent_demo.py
 
-# Probar delegación a un agente específico
-python examples/agents/main_assistant/main_assistant_example.py --test code
-
-# Ejecutar todas las pruebas
-python examples/agents/main_assistant/main_assistant_example.py --test all
+# Versión interactiva
+python examples/integration/multi_agent_assistant/interactive_cli.py
 ```
 
 ### Ejemplos de modelos
@@ -263,9 +288,6 @@ python examples/model_manager_example.py --model gpt-3.5-turbo-16k
 
 # Usar modelo local con selección automática de dispositivo
 python examples/model_manager_example.py --model mistral-7b-instruct --device auto
-
-# Forzar uso de GPU (si está disponible)
-python examples/model_manager_example.py --model phi-2 --device gpu --temperature 0.3
 ```
 
 ### Ejemplos de TTS
@@ -278,131 +300,30 @@ python examples/tts/tts_echo_test.py --list-voices
 
 # Generar y reproducir audio con una voz específica
 python examples/tts/tts_echo_test.py --voice "Carlos" --query "Hola, esto es una prueba del sistema Text-to-Speech"
-
-# Probar la caché y sistema de limpieza
-python examples/tts/tts_echo_test.py --check-cache --cleanup
-```
-
-### Modo API
-
-Para iniciar el servidor API:
-
-```bash
-python main.py --mode api
 ```
 
 ## Agentes disponibles
 
-- **MainAssistant**: Agente centralizado que coordina todos los demás agentes (implementado)
+- **V.I.O.**: Virtual Intelligence Operator - Agente central que coordina todos los demás agentes (implementado)
 - **Echo Agent**: Agente simple para pruebas que repite el input (implementado)
 - **Code Agent**: Agente para generación y análisis de código (implementado)
 - **System Agent**: Agente para control del sistema operativo (implementado)
 - **Orchestrator Agent**: Agente que coordina tareas complejas (implementado)
+- **Memory Agent**: Agente especializado en gestión de memoria semántica (implementado)
 - **Planner Agent**: Agente que planifica tareas complejas (implementado)
-- **Science Agent**: Agente para discusiones científicas y filosóficas (planificado)
+
+## Extensibilidad y Desarrollo Futuro
+
+El sistema está diseñado para ser altamente extensible, permitiendo:
+
+1. **Nuevos Agentes Especializados**: Crear agentes para tareas específicas como interacción con APIs externas o procesamiento de imágenes
+2. **Interfaces Alternativas**: Además de la CLI, se pueden desarrollar interfaces web o aplicaciones móviles
+3. **Mejoras en la Memoria**: Expansión de las capacidades de memoria con nuevos tipos especializados
+4. **Integración de Visión**: Incorporar modelos multimodales para comprensión de imágenes
+5. **Automatización de Tareas**: Agentes que programen y ejecuten tareas repetitivas
+
+Para desarrollar nuevos componentes, consulte la documentación específica de cada subsistema.
 
 ## Licencia
 
 MIT
-
-## Contacto
-
-[Tu nombre/email]
-
-## Organización del código
-
-El proyecto sigue una estructura modular con los siguientes componentes principales:
-
-### Agentes Centrales
-
-- **MainAssistant**: Punto central de interacción que coordina todos los demás agentes
-- **OrchestratorAgent**: Coordina la ejecución de tareas complejas entre múltiples agentes
-- **Agentes especializados**: CodeAgent, SystemAgent, EchoAgent, etc.
-
-### TTS (Text-to-Speech)
-
-Este módulo implementa capacidades de voz para los agentes:
-
-- **Interfaz común**: AgentTTSInterface que conecta agentes con sistemas TTS
-- **Implementaciones**: SimpleTTSManager (gTTS) y TTSManager (MAYA/ElevenLabs)
-- **Gestión de archivos**: Sistema de caché y limpieza automática
-
-### Core MCP (`mcp/`)
-
-Este módulo implementa el Model Context Protocol. Su documentación detallada está disponible en [la documentación de MCP](./mcp/README.md).
-
-- **Protocolo**: Definiciones de mensajes, acciones y respuestas
-- **Conectores**: Comunicación con servidores MCP (HTTP, etc.)
-- **Transporte**: Implementación de servidores HTTP y WebSocket
-
-### Servidores MCP (`mcp_servers/`)
-
-Implementaciones específicas de servidores MCP:
-
-- **SQLite**: [Servidor para bases de datos SQLite](./mcp_servers/sqlite/README.md)
-- (Planificado) Brave Search, sistema de archivos, MongoDB
-
-### Clientes MCP
-
-La mayoría de las funcionalidades de cliente MCP se manejan a través de los conectores genéricos en `mcp/connectors/`, con algunas definiciones base en `mcp_clients/`. En el uso típico, los conectores genéricos son suficientes para interactuar con los servidores MCP.
-
-### Sistema de Modelos (`models/`)
-
-Gestión de modelos de IA locales y en la nube:
-
-- **Detección de recursos**: Analiza CPU, GPU y memoria disponible
-- **Gestión de modelos**: Carga/descarga y optimización
-- **Inferencia**: Comunicación con modelos de distintos proveedores
-
-## Sistema de Memoria
-
-El sistema de memoria proporciona a los agentes capacidad para almacenar y recuperar información de manera eficiente y contextual. Características principales:
-
-- **Diferentes tipos de memoria**: Memoria a corto plazo, largo plazo, episódica y semántica
-- **Búsqueda inteligente**: Soporta búsqueda por palabras clave, similitud semántica y temporal
-- **Fallback automático**: Si la búsqueda exacta falla, intenta con palabras clave individuales
-- **Persistencia**: Almacenamiento en SQLite para mantener las memorias entre sesiones
-- **Metadata flexible**: Permite almacenar metadatos personalizados para cada agente
-- **Importancia gradual**: Las memorias tienen niveles de importancia para priorizar
-- **Sistema compartido**: Los agentes pueden compartir sus memorias y acceder a memorias de otros agentes
-
-Cada agente incluye capacidades de memoria que le permiten:
-
-1. **Recordar interacciones previas**: Guardar consultas y respuestas anteriores
-2. **Mejorar respuestas**: Utilizar contexto de conversaciones pasadas
-3. **Inferir parámetros**: Recuperar información de operaciones similares
-4. **Compartir conocimiento**: Acceder a información que otros agentes han almacenado
-
-Ejemplo de uso de memoria:
-
-```python
-from memory import MemoryManager
-from agents import CodeAgent
-
-# Crear una instancia de memoria
-memory_manager = MemoryManager()
-
-# Configurar un agente con memoria
-code_agent = CodeAgent("code_helper")
-code_agent.setup_memory(memory_manager)
-
-# El agente guarda automáticamente sus interacciones
-response = await code_agent.process("Escribe una función para calcular factorial")
-
-# Más tarde, el agente puede recordar esta interacción
-response = await code_agent.process(
-    "¿Puedes recordarme la función factorial que escribiste antes?",
-    context={"use_memory": True}  # Forzar uso de memoria
-)
-
-# Verificar qué tiene el agente en memoria
-memories = code_agent.recall(query="factorial", limit=5)
-for mem in memories:
-    print(f"Memoria: {mem.content}")
-```
-
-Para más detalles, consulte los [ejemplos de memoria](./examples/memory/) y las pruebas de integración.
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.

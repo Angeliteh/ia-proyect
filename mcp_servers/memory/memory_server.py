@@ -82,7 +82,8 @@ class MemoryServer(MCPServerBase):
                 MCPResource.MEMORY,
                 "memory_item",     # Ítem individual de memoria
                 "memory_type",     # Tipo de memoria (long_term, short_term, etc.)
-                "vector"           # Recurso para búsquedas vectoriales
+                "vector",          # Recurso para búsquedas vectoriales
+                "keyword"          # Recurso para búsquedas por palabras clave
             ]
         )
         
@@ -517,8 +518,8 @@ class MemoryServer(MCPServerBase):
         resource_path = message.resource_path
         data = message.data or {}
         
-        # Solo soportamos búsqueda de memorias y vectores
-        if resource_type not in [MCPResource.MEMORY.value, "memory_item", "vector"]:
+        # Soportamos búsqueda en varios tipos de recursos
+        if resource_type not in [MCPResource.MEMORY.value, "memory_item", "vector", "keyword"]:
             return MCPResponse.error_response(
                 message_id=message.id,
                 code=MCPErrorCode.NOT_IMPLEMENTED,
@@ -601,6 +602,93 @@ class MemoryServer(MCPServerBase):
                     "results": deduplicated_results,
                     "count": len(deduplicated_results),
                     "query": query_text if query_text else "vector_query"
+                }
+            )
+        
+        # Para búsqueda específica por palabras clave
+        elif resource_type == "keyword":
+            # Parámetros de búsqueda
+            query = data.get("query", "").strip()
+            memory_type_filter = data.get("memory_type")
+            limit = int(data.get("limit", 10))
+            
+            if not query:
+                return MCPResponse.error_response(
+                    message_id=message.id,
+                    code=MCPErrorCode.INVALID_REQUEST,
+                    message="Se requiere un término de búsqueda"
+                )
+            
+            # Determinamos el sistema de memoria a usar según el path
+            memory_system_type = resource_path.strip("/")
+            if memory_system_type and memory_system_type in self.memory_manager._specialized_memories:
+                memory_system = self.memory_manager.get_memory_system(memory_system_type)
+            else:
+                memory_system = self.memory_manager.memory_system
+            
+            # Construir consulta básica
+            db_query = {}
+            
+            if memory_type_filter:
+                db_query["memory_type"] = memory_type_filter
+            
+            # Obtener todas las memorias que cumplen con los filtros base
+            all_memories = memory_system.storage.query(db_query)
+            
+            # Separar consulta en palabras clave
+            keywords = query.lower().split()
+            results = []
+            
+            # Buscar memorias que contengan todas las palabras clave
+            for memory in all_memories:
+                content_str = str(memory.content).lower()
+                metadata_str = ""
+                
+                # También buscar en metadatos
+                if hasattr(memory, 'metadata') and memory.metadata:
+                    try:
+                        # Intentar convertir los metadatos a string para buscar en ellos
+                        import json
+                        if isinstance(memory.metadata, dict):
+                            metadata_str = json.dumps(memory.metadata, ensure_ascii=False).lower()
+                        else:
+                            metadata_str = str(memory.metadata).lower()
+                    except:
+                        metadata_str = str(memory.metadata).lower()
+                
+                # Texto completo para búsqueda (contenido + metadatos)
+                full_text = content_str + " " + metadata_str
+                
+                # Contar cuántas palabras clave coinciden
+                matches = sum(1 for kw in keywords if kw in full_text)
+                
+                # Si coinciden todas las palabras clave, o al menos la mitad
+                min_matches = max(1, len(keywords) // 2)
+                if matches >= min_matches:
+                    # Calcular puntuación basada en número de coincidencias
+                    score = matches / len(keywords)
+                    
+                    # Añadir a resultados con puntuación
+                    memory_dict = memory.to_dict()
+                    memory_dict["score"] = score
+                    memory_dict["matches"] = matches
+                    results.append(memory_dict)
+            
+            # Ordenar por puntuación (mayor a menor)
+            results.sort(key=lambda x: x["score"], reverse=True)
+            
+            # Limitar resultados
+            results = results[:limit]
+            
+            self.logger.info(f"Búsqueda por palabras clave: {len(results)} resultados para '{query}'")
+            
+            return MCPResponse.success_response(
+                message_id=message.id,
+                data={
+                    "results": results,
+                    "count": len(results),
+                    "query": query,
+                    "keywords": keywords
                 }
             )
         
