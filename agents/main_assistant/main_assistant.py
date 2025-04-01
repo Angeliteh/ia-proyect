@@ -12,6 +12,7 @@ del usuario y mostrando una personalidad relajada pero segura, amigable pero res
 import logging
 from typing import Dict, List, Optional, Any
 import os
+import re
 
 from ..base import BaseAgent, AgentResponse
 
@@ -131,6 +132,13 @@ class MainAssistant(BaseAgent):
         })
         
         try:
+            # MEJORA: Consultar memoria primero para enriquecer contexto
+            memory_context = await self._enrich_with_memory(query, context)
+            if memory_context.get("memory_results"):
+                self.logger.info(f"Encontradas {len(memory_context['memory_results'])} memorias relevantes")
+                # Agregar contexto de memoria al contexto original
+                context.update(memory_context)
+            
             # Determine if this query needs specialized handling
             agent_type, response = await self._determine_agent_for_query(query, context)
             
@@ -163,6 +171,66 @@ class MainAssistant(BaseAgent):
             )
             
             return self._finalize_response(error_response, query, context)
+    
+    async def _enrich_with_memory(self, query: str, context: Dict) -> Dict:
+        """
+        Consulta la memoria para enriquecer el contexto antes de procesar.
+        
+        Args:
+            query: Consulta del usuario
+            context: Contexto actual
+            
+        Returns:
+            Diccionario con información de memoria
+        """
+        memory_context = {}
+        
+        # Solo consultar memoria si está disponible
+        if not self.has_memory():
+            return memory_context
+            
+        try:
+            # Consultar memoria semántica
+            memories = self.memory_manager.search_memories(
+                query=query,
+                limit=5,
+                threshold=0.15  # Umbral más permisivo para esta búsqueda inicial
+            )
+            
+            if memories:
+                # Guardar resultados para uso posterior
+                memory_context["memory_results"] = memories
+                memory_context["memory_used"] = True
+                memory_context["memories_found"] = len(memories)
+                
+                # Extraer contenido relevante para contexto
+                relevant_content = []
+                for mem in memories:
+                    # Manejar diferentes formatos de memoria
+                    if isinstance(mem.content, dict) and "content" in mem.content:
+                        relevant_content.append(mem.content["content"])
+                    elif isinstance(mem.content, dict) and "response" in mem.content:
+                        relevant_content.append(mem.content["response"])
+                    else:
+                        relevant_content.append(str(mem.content))
+                
+                # Añadir al contexto
+                memory_context["relevant_content"] = relevant_content
+                
+                # Crear resumen para decisión de agente
+                memory_context["memory_summary"] = "\n".join(relevant_content[:2])
+                
+                self.logger.info(f"Memoria consultada. Encontrados {len(memories)} resultados relevantes.")
+            else:
+                self.logger.info("No se encontraron memorias relevantes para la consulta.")
+                memory_context["memory_used"] = False
+                memory_context["memories_found"] = 0
+        
+        except Exception as e:
+            self.logger.error(f"Error consultando memoria: {str(e)}")
+            memory_context["memory_error"] = str(e)
+        
+        return memory_context
     
     def _finalize_response(self, response: AgentResponse, query: str, context: Dict) -> AgentResponse:
         """
@@ -232,6 +300,62 @@ class MainAssistant(BaseAgent):
             self.logger.info(f"Usando agente explícito desde contexto: {context['agent_type']}")
             return context["agent_type"], None
         
+        # MEJORA: Revisar si hay resultados de memoria relevantes para la consulta
+        if context and context.get("memory_used") and context.get("memories_found", 0) > 0:
+            # Verificar si la memoria contiene información sobre la consulta directa
+            memories = context.get("memory_results", [])
+            
+            # Verificar si alguna memoria es altamente relevante (importance > 0.8)
+            highly_relevant = False
+            for memory in memories:
+                if memory.importance > 0.8:
+                    highly_relevant = True
+                    break
+                    
+            # Si hay memorias relevantes y son consultas sobre conocimiento general
+            # y no hay indicios de que se requiera generación de código, preferir memoria
+            if highly_relevant:
+                query_normalized = self._normalize_query(query)
+                code_indicators = [
+                    "genera", "generar", "crea", "crear", "escribe", "escribir", 
+                    "implementa", "implementar", "programa", "programar"
+                ]
+                
+                # Si no parece ser una solicitud de generación de código, usar memoria
+                if not any(indicator in query_normalized for indicator in code_indicators):
+                    self.logger.info("Memorias altamente relevantes encontradas, priorizando respuesta basada en memoria")
+                    
+                    # Preferir usar memory_agent para gestionar la respuesta con contexto completo
+                    self.logger.info("Delegando a memory_agent para respuesta detallada")
+                    agent_id = self._find_agent_id_by_type("memory")
+                    if agent_id:
+                        return agent_id, None
+                    
+                    # Fallback: preparar una respuesta directa basada en la memoria más relevante
+                    memory_content = str(memories[0].content)
+                    
+                    # Verificar si es una conversación tipo pregunta-respuesta
+                    if "Pregunta:" in memory_content and "Respuesta:" in memory_content:
+                        parts = memory_content.split("Respuesta:", 1)
+                        if len(parts) > 1:
+                            memory_content = parts[1].strip()
+                    
+                    # Si la memoria es muy grande, usarla como contexto pero no responder directamente
+                    if len(memory_content) > 500:
+                        self.logger.info("Memoria relevante pero extensa, derivando a memory_agent")
+                        return "memory", None
+                        
+                    response = AgentResponse(
+                        content=memory_content,
+                        status="success",
+                        metadata={
+                            "memory_used": True,
+                            "memories_found": len(memories),
+                            "direct_memory_response": True
+                        }
+                    )
+                    return "direct", response
+                    
         # Normalizar consulta para patrones más robustos (elimina acentos, signos, y corrige palabras pegadas)
         query_lower = query.lower().strip()
         query_normalized = self._normalize_query(query)
@@ -575,7 +699,16 @@ class MainAssistant(BaseAgent):
         # Convertir a minúsculas y eliminar espacios en blanco adicionales
         normalized = query.lower().strip()
         
-        # Reemplazar caracteres especiales y acentos
+        # Guardar números y operaciones matemáticas antes de normalizar
+        # Crear un mapa de dígitos y operaciones matemáticas para preservarlos
+        numeric_expressions = re.findall(r'\d+[\+\-\*\/\d\s]*\d*', normalized)
+        numeric_map = {}
+        for i, expr in enumerate(numeric_expressions):
+            placeholder = f"__NUM_{i}__"
+            numeric_map[placeholder] = expr
+            normalized = normalized.replace(expr, placeholder)
+            
+        # Reemplazar caracteres especiales y acentos pero preservar signos matemáticos
         replacements = {
             'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
             'ü': 'u', 'ñ': 'n', '?': ' ', '¿': ' ', '!': ' ', 
@@ -593,14 +726,38 @@ class MainAssistant(BaseAgent):
             'quees': 'que es',
             'erestu': 'eres tu',
             'comofunciona': 'como funciona',
-            'comose': 'como se'
+            'comose': 'como se',
+            'comoestas': 'como estas',
+            'quehaces': 'que haces',
+            'cuentahasta': 'cuenta hasta'
         }
         
         for compound, separated in common_compounds.items():
             normalized = normalized.replace(compound, separated)
         
-        # Eliminar duplicación de espacios y palabras irrelevantes
+        # Preservar frases comunes que deben mantenerse juntas
+        phrases_to_preserve = [
+            'cuenta hasta', 'escribe un', 'genera un', 'crea un',
+            'dime como', 'explica como', 'cuéntame sobre', 'dime sobre',
+            'te quiero', 'cuenta un chiste', 'cuentame un'
+        ]
+        
+        # Reemplazar espacios en frases a preservar con guiones bajos
+        for phrase in phrases_to_preserve:
+            if phrase in normalized:
+                normalized = normalized.replace(phrase, phrase.replace(' ', '_'))
+        
+        # Eliminar duplicación de espacios
         normalized = ' '.join(normalized.split())
+        
+        # Restaurar números y operaciones matemáticas
+        for placeholder, expr in numeric_map.items():
+            normalized = normalized.replace(placeholder, expr)
+            
+        # Restaurar frases preservadas
+        for phrase in phrases_to_preserve:
+            phrase_with_underscores = phrase.replace(' ', '_')
+            normalized = normalized.replace(phrase_with_underscores, phrase)
         
         return normalized
 
@@ -618,6 +775,25 @@ class MainAssistant(BaseAgent):
         # Obtener versiones normalizadas y originales para mayor robustez
         query_lower = query.lower().strip()
         query_normalized = self._normalize_query(query)
+        
+        # MEJORA: Verificar si tenemos información de memoria disponible
+        if context.get("memory_used") and context.get("relevant_content"):
+            # Intentar usar la memoria directamente para responder consultas de conocimiento
+            # Esto solo aplica si la consulta parece ser una solicitud de información
+            knowledge_patterns = ["que es", "como funciona", "explica", "dime sobre", "sabes sobre"]
+            if any(pattern in query_normalized for pattern in knowledge_patterns):
+                memory_content = context.get("memory_summary", "")
+                # Si tenemos memorias relevantes, usarlas para responder
+                if memory_content and len(memory_content) > 50:
+                    return AgentResponse(
+                        content=memory_content,
+                        status="success",
+                        metadata={
+                            "memory_used": True,
+                            "direct_memory_response": True,
+                            "memories_found": context.get("memories_found", 0)
+                        }
+                    )
         
         # 1. PATRONES DE CONVERSACIÓN BÁSICA
         # ==================================
@@ -645,6 +821,30 @@ class MainAssistant(BaseAgent):
             import random
             response_text = random.choice(greeting_responses)
             return AgentResponse(content=response_text)
+        
+        # 1.0 DETECTAR EXPRESIONES DE AFECTO O PERSONALES
+        personal_patterns = {
+            "te quiero": [
+                "Me alegra escuchar eso. Estoy aquí para asistirte lo mejor posible.",
+                "Gracias, es agradable escucharlo. ¿En qué puedo ayudarte hoy?",
+                "Aprecio tus palabras. Estoy para lo que necesites."
+            ],
+            "te amo": [
+                "Gracias por expresar eso. Estoy aquí para brindarte la mejor asistencia posible.",
+                "Agradezco tu entusiasmo. Mi objetivo es darte la mejor experiencia posible.",
+                "Me alegra que estés a gusto con mi asistencia. ¿En qué puedo ayudarte ahora?"
+            ],
+            "eres genial": [
+                "¡Gracias! Trato de hacer mi mejor esfuerzo. ¿En qué puedo ayudarte hoy?",
+                "Me alegra que te resulte útil. ¿Qué necesitas ahora?",
+                "Aprecio el cumplido. Estoy aquí para lo que necesites."
+            ]
+        }
+        
+        for pattern, responses in personal_patterns.items():
+            if pattern in query_normalized:
+                import random
+                return AgentResponse(content=random.choice(responses))
         
         # 1.1 RESPUESTAS A CONSULTAS DE DISCULPA Y CONFUSIÓN
         # ==================================================
@@ -690,6 +890,66 @@ Por favor, selecciona una opción escribiendo tu consulta específica.
                 metadata={"response_type": "options_menu", "user_confused": True}
             )
         
+        # 1.2 MANEJO DE CONTEO Y MATEMÁTICAS SIMPLES
+        # ==========================================
+        
+        # Patrón "cuenta hasta X"
+        import re
+        count_match = re.search(r'cuenta hasta (\d+)', query_normalized)
+        if count_match:
+            try:
+                count_to = int(count_match.group(1))
+                if 1 <= count_to <= 100:  # Límite razonable
+                    numbers = list(range(1, count_to + 1))
+                    count_text = ", ".join(str(n) for n in numbers)
+                    return AgentResponse(content=count_text)
+                else:
+                    return AgentResponse(content=f"El número {count_to} está fuera de rango. Por favor, usa un número entre 1 y 100.")
+            except ValueError:
+                pass
+        
+        # Operaciones matemáticas simples
+        math_pattern = re.search(r'(\d+)\s*([\+\-\*\/])\s*(\d+)', query_normalized)
+        if math_pattern:
+            try:
+                num1 = int(math_pattern.group(1))
+                operator = math_pattern.group(2)
+                num2 = int(math_pattern.group(3))
+                
+                result = None
+                if operator == '+':
+                    result = num1 + num2
+                elif operator == '-':
+                    result = num1 - num2
+                elif operator == '*':
+                    result = num1 * num2
+                elif operator == '/' and num2 != 0:
+                    result = num1 / num2
+                
+                if result is not None:
+                    return AgentResponse(content=f"El resultado de {num1} {operator} {num2} es {result}")
+                else:
+                    return AgentResponse(content="No puedo realizar esa operación matemática. Asegúrate de que sea válida.")
+            except (ValueError, ZeroDivisionError):
+                pass
+        
+        # 1.3 CHISTES Y ENTRETENIMIENTO
+        # ============================
+        
+        joke_patterns = ["cuenta un chiste", "dime un chiste", "cuéntame algo gracioso", "hazme reír"]
+        
+        if any(pattern in query_normalized for pattern in joke_patterns):
+            jokes = [
+                "¿Por qué los programadores prefieren el frío? Porque odian los bugs.",
+                "¿Qué le dice un bit al otro? Nos vemos en el bus.",
+                "¿Cuántos programadores hacen falta para cambiar una bombilla? Ninguno, es un problema de hardware.",
+                "Un programador va al supermercado. Su esposa le dice: 'Compra una barra de pan y si hay huevos, trae 6'. Volvió con 6 barras de pan: 'Había huevos'.",
+                "¿Cómo se llama un programador zombi? Un dead-veloper.",
+                "No es magia, es inteligencia artificial... bueno, en realidad es solo un montón de if/else statements."
+            ]
+            import random
+            return AgentResponse(content=random.choice(jokes))
+        
         # Patrones de despedida
         farewells = ["adios", "hasta luego", "nos vemos", "chao", "bye", "hasta pronto"]
         
@@ -710,7 +970,7 @@ Por favor, selecciona una opción escribiendo tu consulta específica.
             import random
             return AgentResponse(content=random.choice(farewell_responses))
         
-        # 1.2 RESPUESTAS A CONSULTAS EMOCIONALES Y EXPERIENCIA DE USUARIO
+        # 1.4 RESPUESTAS A CONSULTAS EMOCIONALES Y EXPERIENCIA DE USUARIO
         # ===============================================================
         
         # Patrones de experiencia negativa o dificultad
@@ -952,122 +1212,126 @@ Actualmente hay {len(self.specialized_agents)} agentes especializados disponible
     
     async def _handle_via_orchestrator(self, query: str, context: Dict) -> AgentResponse:
         """
-        Handle a query via the orchestrator agent.
+        Handle a complex query using the orchestrator agent.
         
         Args:
             query: User's query
             context: Request context
             
         Returns:
-            AgentResponse with the result
+            Response from the orchestrator
         """
-        self.logger.info(f"Delegating query to orchestrator: {query[:50]}...")
-        
-        # Ensure we're registered with communicator
-        await self.register_with_communicator()
-        
-        # Prepare context for orchestrator
-        orchestrator_context = {
-            "from_main_assistant": True,
-            "original_query": query,
-            **(context or {})
-        }
-        
-        # Send request to orchestrator
-        response = await self.send_request_to_agent(
-            self.orchestrator_id,
-            query,
-            orchestrator_context
-        )
-        
-        if not response:
+        if not self.orchestrator_id:
             return AgentResponse(
-                content="Lo siento, el orquestador no está disponible en este momento. Puedo intentar manejar tu solicitud de otra manera.",
+                content="No tengo un orquestador configurado para manejar tareas complejas.",
                 status="error",
-                metadata={"error": "orchestrator_unavailable"}
+                metadata={"error": "orchestrator_not_configured"}
             )
             
-        return response
+        self.logger.info(f"Delegando consulta compleja al orquestador: {query[:50]}...")
+        
+        try:
+            from ..agent_communication import communicator
+            orchestrator = communicator.get_agent_by_id(self.orchestrator_id)
+            
+            if not orchestrator:
+                return AgentResponse(
+                    content="No se puede conectar con el orquestador en este momento.",
+                    status="error",
+                    metadata={"error": "orchestrator_unavailable"}
+                )
+                
+            # Preparar contexto enriquecido para el orquestador
+            orchestrator_context = context.copy() if context else {}
+            
+            # Incluir información de memoria como contexto adicional si existe
+            if context.get("memory_used") and context.get("memories_found", 0) > 0:
+                orchestrator_context["has_memory_context"] = True
+                
+                # Extraer información relevante para el orquestador
+                if context.get("relevant_content"):
+                    # Formatear memorias como contexto útil para la orquestación
+                    orchestrator_context["background_knowledge"] = context.get("relevant_content")
+                    
+                    # Añadir explicación sobre el contexto proporcionado
+                    orchestrator_context["context_message"] = "Las siguientes memorias contienen información relevante para esta tarea:"
+            
+            # Enviar la consulta al orquestador
+            response = await orchestrator.process(query, orchestrator_context)
+            
+            # Añadir metadatos sobre la orquestación
+            if response:
+                response.metadata["orchestrated"] = True
+                response.metadata["agent_used"] = self.orchestrator_id
+                
+            return response
+            
+        except Exception as e:
+            self.logger.error(f"Error en orquestación: {str(e)}")
+            return AgentResponse(
+                content=f"Ocurrió un error al procesar tu solicitud mediante el orquestador: {str(e)}",
+                status="error",
+                metadata={"error": "orchestration_error"}
+            )
     
-    async def _handle_via_specialized_agent(self, agent_type: str, query: str, context: Dict) -> AgentResponse:
+    async def _handle_via_specialized_agent(self, agent_id: str, query: str, context: Dict) -> AgentResponse:
         """
-        Handle a query by delegating to a specialized agent.
+        Handle a query via a specialized agent.
         
         Args:
-            agent_type: Type of agent to use
+            agent_id: ID of the agent to use
             query: User's query
             context: Request context
             
         Returns:
             AgentResponse with the result
         """
-        self.logger.info(f"Delegating query to {agent_type} agent: {query[:50]}...")
+        self.logger.info(f"Delegando consulta a agente especializado: {agent_id}")
         
-        # Find an appropriate agent ID based on type
-        agent_id = self._find_agent_id_by_type(agent_type)
-        
-        if not agent_id:
+        try:
+            # CORRECCIÓN: Obtener el agente desde el comunicador usando la importación apropiada
+            from ..agent_communication import communicator
+            agent = communicator.get_agent_by_id(agent_id)
+            
+            if not agent:
+                return AgentResponse(
+                    content=f"Lo siento, no puedo encontrar el agente '{agent_id}' en este momento.",
+                    status="error",
+                    metadata={"error": "agent_not_found"}
+                )
+                
+            # Preparar contexto enriquecido para el agente especializado
+            specialized_context = context.copy() if context else {}
+            
+            # Incluir información de memoria si existe y es relevante
+            if context and context.get("memory_used") and context.get("memories_found", 0) > 0:
+                specialized_context["has_memory_context"] = True
+                
+                # Añadir contenido relevante si existe
+                if context.get("relevant_content"):
+                    specialized_context["background_knowledge"] = context.get("relevant_content")
+                    specialized_context["relevant_memory_fragments"] = context.get("relevant_memory_fragments", [])
+                    
+                    # Añadir mensaje de contexto
+                    specialized_context["context_message"] = "La siguiente información de memoria puede ser relevante:"
+            
+            # Enviar consulta al agente especializado
+            response = await agent.process(query, specialized_context)
+            
+            # Añadir metadatos sobre la delegación
+            if response:
+                response.metadata["delegated"] = True
+                response.metadata["agent_used"] = agent_id
+                
+            return response
+            
+        except Exception as e:
+            self.logger.error(f"Error al procesar consulta con agente {agent_id}: {str(e)}")
             return AgentResponse(
-                content=f"Lo siento, no tengo un agente de tipo {agent_type} disponible en este momento.",
+                content=f"Error al procesar tu solicitud con el agente especializado: {str(e)}",
                 status="error",
-                metadata={"error": "agent_unavailable"}
+                metadata={"error": "specialized_agent_error", "agent_id": agent_id}
             )
-            
-        # Ensure we're registered with communicator
-        await self.register_with_communicator()
-        
-        # Prepare context for specialized agent
-        agent_context = {
-            "from_main_assistant": True,
-            "original_query": query,
-            **(context or {})
-        }
-        
-        # Add task-specific context
-        if agent_type == "code":
-            agent_context["task"] = "generate"  # Default task for code agent
-            
-            # Detect language from query
-            for lang in ["python", "javascript", "java", "c++", "c#"]:
-                if lang in query.lower():
-                    agent_context["language"] = lang
-                    break
-        
-        # Send request to specialized agent
-        response = await self.send_request_to_agent(
-            agent_id,
-            query,
-            agent_context
-        )
-        
-        if not response:
-            return AgentResponse(
-                content=f"Lo siento, el agente especializado no está disponible en este momento.",
-                status="error",
-                metadata={"error": "agent_unavailable"}
-            )
-        
-        # Añadir información de delegación a los metadatos para facilitar pruebas
-        if isinstance(response, AgentResponse):
-            # Agregar información de delegación a los metadatos existentes
-            response.metadata["delegated"] = True
-            response.metadata["delegated_to"] = agent_id
-            response.metadata["delegated_type"] = agent_type
-            response.metadata["original_agent_id"] = self.agent_id
-        else:
-            # Si por alguna razón response no es un AgentResponse, lo convertimos
-            response = AgentResponse(
-                content=response.content if hasattr(response, "content") else str(response),
-                status="success",
-                metadata={
-                    "delegated": True,
-                    "delegated_to": agent_id,
-                    "delegated_type": agent_type,
-                    "original_agent_id": self.agent_id
-                }
-            )
-            
-        return response
     
     def _find_agent_id_by_type(self, agent_type: str) -> Optional[str]:
         """

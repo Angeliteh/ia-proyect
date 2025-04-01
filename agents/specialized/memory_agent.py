@@ -112,6 +112,53 @@ class MemoryAgent(BaseAgent):
         action = context.get("action", "recall")
         
         try:
+            # MEJORA: Si recibimos contexto de memoria desde MainAssistant, usarlo
+            if context.get("memory_in_context") and context.get("memory_results"):
+                self.logger.info("Utilizando resultados de memoria proporcionados en el contexto")
+                memories = context.get("memory_results")
+                
+                # Formatear los resultados de memoria proporcionados
+                formatted_results = self._format_memory_results(memories)
+                
+                # Añadir explicación si las memorias ya contienen respuestas directas
+                has_qa_format = any("Pregunta:" in str(m.content) and "Respuesta:" in str(m.content) for m in memories)
+                
+                if has_qa_format:
+                    # Extraer solo las respuestas de las memorias con formato Q&A
+                    answers = []
+                    for memory in memories:
+                        content = str(memory.content)
+                        if "Pregunta:" in content and "Respuesta:" in content:
+                            parts = content.split("Respuesta:", 1)
+                            if len(parts) > 1:
+                                answers.append(parts[1].strip())
+                    
+                    if answers:
+                        # Combinar respuestas o usar la más relevante
+                        response_text = answers[0]  # Usar la más relevante
+                        
+                        self.set_state("idle")
+                        return AgentResponse(
+                            content=response_text,
+                            status="success",
+                            metadata={
+                                "memory_used": True,
+                                "memories_found": len(memories),
+                                "direct_qa_response": True
+                            }
+                        )
+                
+                # Si no hay formato Q&A, responder con los resultados formateados
+                self.set_state("idle")
+                return AgentResponse(
+                    content=formatted_results,
+                    status="success",
+                    metadata={
+                        "memory_used": True,
+                        "memories_found": len(memories)
+                    }
+                )
+            
             # Determinar qué operación de memoria realizar
             if action == "remember":
                 # Almacenar nueva memoria
@@ -685,67 +732,121 @@ class MemoryAgent(BaseAgent):
             self.logger.error(traceback.format_exc())
             return False 
 
-    def _format_memory_results(self, results: List, include_similarity: bool = False) -> str:
+    def _format_memory_results(self, results):
         """
-        Formatea los resultados de la búsqueda en memoria para presentarlos al usuario.
+        Formatea resultados de memoria para presentación.
         
         Args:
-            results: Lista de resultados (diccionarios o objetos MemoryItem)
-            include_similarity: Si se debe incluir la puntuación de similitud
+            results: Lista de MemoryItem resultados de búsqueda
             
         Returns:
-            Texto formateado con los resultados
+            String formateado con resultados
         """
         if not results:
-            return "No se encontraron recuerdos relevantes."
+            return "No se encontraron memorias relevantes."
             
-        lines = ["Información encontrada en mi memoria:"]
+        # MEJORA: Verifica el tipo de resultados y normaliza acceso a content
+        normalized_results = []
+        for memory in results:
+            if isinstance(memory, dict):
+                # Si es un diccionario, normalizar a formato estandarizado
+                normalized_memory = {
+                    "content": memory.get("content", "Sin contenido"),
+                    "memory_type": memory.get("memory_type", "general"),
+                    "importance": memory.get("importance", 0.5),
+                    "metadata": memory.get("metadata", {})
+                }
+                normalized_results.append(normalized_memory)
+            else:
+                # Si es un objeto, crear dict equivalente
+                normalized_memory = {
+                    "content": getattr(memory, "content", "Sin contenido"),
+                    "memory_type": getattr(memory, "memory_type", "general"),
+                    "importance": getattr(memory, "importance", 0.5),
+                    "metadata": getattr(memory, "metadata", {})
+                }
+                normalized_results.append(normalized_memory)
         
-        for i, result in enumerate(results):
-            # Verificar si es un diccionario o un objeto MemoryItem
-            if isinstance(result, dict):
-                content = result.get('content', 'Contenido desconocido')
-                similarity = result.get('similarity', None)
-                metadata = result.get('metadata', {})
-                memory_type = result.get('memory_type', 'general')
-            else:
-                # Asumir que es un objeto MemoryItem
-                content = getattr(result, 'content', 'Contenido desconocido')
-                similarity = getattr(result, 'similarity', None)
-                metadata = getattr(result, 'metadata', {})
-                memory_type = getattr(result, 'memory_type', 'general')
+        # MEJORA: Detectar si hay un formato Q&A para optimizar la presentación
+        has_qa_format = any("Pregunta:" in str(m["content"]) and "Respuesta:" in str(m["content"]) 
+                           for m in normalized_results)
+        
+        # CASO 1: Si hay formato Q&A, extraer directamente las respuestas
+        if has_qa_format:
+            # Buscar la memoria con formato Q&A más relevante
+            qa_memories = []
+            for memory in normalized_results:
+                content = str(memory["content"])
+                if "Pregunta:" in content and "Respuesta:" in content:
+                    qa_memories.append(memory)
             
-            # Formatear el contenido según su tipo
+            if qa_memories:
+                # Tomar la respuesta más relevante
+                memory = qa_memories[0]
+                content = str(memory["content"])
+                parts = content.split("Respuesta:", 1)
+                if len(parts) > 1:
+                    return parts[1].strip()
+        
+        # CASO 2: Para una única memoria muy relevante con contenido extenso
+        if len(normalized_results) == 1 and len(str(normalized_results[0]["content"])) > 100:
+            memory = normalized_results[0]
+            content = memory["content"]
+            # Verificar si content es un dict con campos específicos
             if isinstance(content, dict):
-                # Si el contenido es un diccionario, mostrarlo de forma legible
-                try:
-                    import json
-                    content_str = json.dumps(content, ensure_ascii=False, indent=2)
-                    content_str = f"\n{content_str}"
-                except:
-                    content_str = str(content)
+                if "response" in content:
+                    return content["response"]
+                elif "content" in content:
+                    return content["content"]
+            return str(content)
+        
+        # CASO 3: Formato múltiples resultados de forma clara
+        formatted = []
+        
+        # Determinar si debemos mostrar metadatos (útil para debugging)
+        show_metadata = False
+        
+        for i, memory in enumerate(normalized_results):
+            # Obtener contenido limpio
+            content = memory["content"]
+            if isinstance(content, dict):
+                if "response" in content:
+                    content = content["response"]
+                elif "content" in content:
+                    content = content["content"]
+                else:
+                    content = str(content)
             else:
-                content_str = str(content)
-            
-            # Crear la línea del resultado
-            line = f"\n{i+1}. {content_str}"
-            
-            # Añadir metadatos importantes si existen
-            if metadata and isinstance(metadata, dict):
-                category = metadata.get('category')
-                if category:
-                    line += f"\n   Categoría: {category}"
-                subcategory = metadata.get('subcategory')
-                if subcategory:
-                    line += f"\n   Subcategoría: {subcategory}"
-                    
-            # Añadir puntuación de similitud si se solicita y está disponible
-            if include_similarity and similarity is not None:
-                line += f"\n   Relevancia: {similarity:.2f}"
+                content = str(content)
                 
-            lines.append(line)
+            # Limitar longitud para mejor presentación
+            if len(content) > 300:
+                content = content[:297] + "..."
+                
+            # Formatear resultado
+            memory_type = memory["memory_type"] or "general"
+            relevance = memory["importance"]
             
-        return "\n".join(lines)
+            result_item = f"MEMORIA {i+1}: {content}\n"
+            
+            # Mostrar metadatos si es necesario
+            if show_metadata:
+                result_item += f"  Tipo: {memory_type}, Relevancia: {relevance:.2f}\n"
+                
+                # Mostrar tags si están presentes
+                metadata = memory["metadata"]
+                if metadata and "tags" in metadata:
+                    tags = metadata["tags"]
+                    if isinstance(tags, list):
+                        result_item += f"  Tags: {', '.join(tags)}\n"
+            
+            formatted.append(result_item)
+        
+        # Si hay muchos resultados, personalizar la respuesta
+        if len(formatted) > 3:
+            return f"Encontré {len(formatted)} memorias relevantes sobre esto:\n\n" + "\n".join(formatted[:3]) + f"\n\n...y {len(formatted)-3} resultados más."
+        else:
+            return "Encontré la siguiente información:\n\n" + "\n".join(formatted)
 
     def _generate_answer_from_memories(self, query, memories):
         """
@@ -758,41 +859,44 @@ class MemoryAgent(BaseAgent):
         Returns:
             Respuesta generada basada en las memorias
         """
+        # Normalizar las memorias para acceder consistentemente al contenido
+        normalized_memories = []
+        for memory in memories:
+            if isinstance(memory, dict):
+                content = memory.get("content", "")
+            else:
+                content = getattr(memory, "content", "")
+            normalized_memories.append(str(content))
+        
+        # Si no tenemos memorias normalizadas, devolver respuesta genérica
+        if not normalized_memories:
+            return "No tengo información suficiente para responder a esa pregunta."
+        
         # Si tenemos un modelo, usarlo para generar una respuesta coherente
         if hasattr(self, 'model_manager') and self.model_manager:
             try:
-                # Preparar contexto con las memorias
-                memory_context = []
-                for memory in memories:
-                    if hasattr(memory, 'content'):
-                        memory_context.append(str(memory.content))
-                    else:
-                        memory_context.append(str(memory.get('content', '')))
-                    
+                # Construir prompt con las memorias normalizadas
+                memory_context_text = "\n".join(normalized_memories)
+                
                 # Construir prompt
                 prompt = f"""
                 Pregunta: {query}
                 
                 Información disponible:
-                {memory_context}
+                {memory_context_text}
                 
                 Responde de manera concisa y clara basándote solo en la información proporcionada.
                 """
                 
-                return "Basado en la información que tengo: " + memory_context[0]
+                # Por ahora, simplemente devuelve la primera memoria
+                return "Basado en la información que tengo: " + normalized_memories[0]
                 
             except Exception as e:
                 self.logger.error(f"Error generando respuesta con modelo: {e}")
                 # En caso de error, caer al método simple
         
         # Método simple (sin modelo): devolver la primera memoria relevante
-        for memory in memories:
-            if hasattr(memory, 'content'):
-                return f"Según mi información: {memory.content}"
-            else:
-                return f"Según mi información: {memory.get('content', 'No tengo información específica.')}"
-            
-        return "No tengo información suficiente para responder a esa pregunta." 
+        return f"Según mi información: {normalized_memories[0]}"
 
     def _setup_actions(self):
         """Configurar acciones disponibles para este agente."""

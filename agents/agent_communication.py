@@ -378,6 +378,34 @@ class AgentCommunicator:
             return self.agents[agent_id]
         return None
 
+    def get_agent_by_id(self, agent_id: str) -> Optional[BaseAgent]:
+        """
+        Obtiene un agente registrado por su ID.
+        
+        Args:
+            agent_id: ID del agente a obtener
+            
+        Returns:
+            El agente si está registrado, None en caso contrario
+        """
+        if agent_id in self.agents:
+            return self.agents[agent_id]
+        self.logger.warning(f"Agente con ID '{agent_id}' no encontrado")
+        return None
+        
+    # Método de compatibilidad para código existente
+    def get_agent(self, agent_id: str) -> Optional[BaseAgent]:
+        """
+        Alias de get_agent_by_id para mantener compatibilidad con código existente.
+        
+        Args:
+            agent_id: ID del agente a obtener
+            
+        Returns:
+            El agente si está registrado, None en caso contrario
+        """
+        return self.get_agent_by_id(agent_id)
+
 
 # Create a global communicator instance
 communicator = AgentCommunicator()

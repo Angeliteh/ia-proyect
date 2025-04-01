@@ -15,6 +15,7 @@ import sys
 import asyncio
 import logging
 from pathlib import Path
+import time
 
 # Asegurar que el directorio raíz esté en el path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -108,8 +109,17 @@ async def setup_agents(memory_client, agent_config):
         "description": "Agente especializado en gestión de memoria semántica",
         "model_config": model_config,
         "memory_config": create_memory_config("memory"),
-        "semantic_threshold": 0.25, 
-        "keyword_fallback_threshold": 0.2
+        "semantic_threshold": 0.20,  # Más permisivo para encontrar coincidencias semánticas
+        "keyword_fallback_threshold": 0.15,  # Más permisivo para búsqueda por palabras clave
+        "use_semantic_memory": True,
+        "memory_integration": {
+            "conversation_memory": True,
+            "auto_summarize": True
+        },
+        "memory_search": {
+            "prioritize_recent": True,
+            "search_depth": 10  # Buscar en más memorias
+        }
     }
     
     memory_agent = MemoryAgent(
@@ -226,6 +236,7 @@ async def add_example_memories(memory_agent):
     logger.info("Añadiendo memorias de ejemplo...")
     
     example_memories = [
+        # Identidad y personalidad del sistema
         {
             "content": "V.I.O. (Virtual Intelligence Operator) es un sistema modular de agentes IA basado en el Model Context Protocol (MCP). Combina capacidades de procesamiento de lenguaje natural, ejecución de código, gestión de sistema y memoria semántica para proporcionar una experiencia de asistencia integral. V.I.O. puede asistir con programación, búsqueda de información, gestión de sistema y orquestación de tareas complejas.",
             "memory_type": "general",
@@ -238,23 +249,141 @@ async def add_example_memories(memory_agent):
             "importance": 1.0,
             "metadata": {"category": "sistema", "subcategory": "personalidad", "critical": True}
         },
+        
+        # Conocimientos técnicos - Programación
         {
-            "content": "Python es un lenguaje de programación interpretado con tipado dinámico que permite programación orientada a objetos, programación funcional y programación imperativa.",
+            "content": "Python es un lenguaje de programación interpretado con tipado dinámico que permite programación orientada a objetos, programación funcional y programación imperativa. Es muy popular para inteligencia artificial, análisis de datos, desarrollo web y automatización.",
             "memory_type": "general",
-            "importance": 0.7,
-            "metadata": {"category": "tecnología", "subcategory": "programación"}
+            "importance": 0.8,
+            "metadata": {"category": "tecnología", "subcategory": "programación", "tags": ["Python", "lenguaje de programación"]}
         },
         {
-            "content": "El patrón MVC (Modelo-Vista-Controlador) separa la lógica de la aplicación en tres componentes: el Modelo (datos), la Vista (interfaz) y el Controlador (lógica).",
+            "content": "JavaScript es un lenguaje de programación interpretado, orientado a objetos, basado en prototipos y con funciones de primera clase. Es principalmente utilizado en el navegador web para crear interactividad en sitios web, pero también se usa en el backend con Node.js.",
+            "memory_type": "general",
+            "importance": 0.8,
+            "metadata": {"category": "tecnología", "subcategory": "programación", "tags": ["JavaScript", "desarrollo web"]}
+        },
+        {
+            "content": "SQL (Structured Query Language) es un lenguaje de programación diseñado para administrar bases de datos relacionales. Las principales operaciones son SELECT, INSERT, UPDATE y DELETE. Es esencial para trabajar con bases de datos como MySQL, PostgreSQL, SQLite, SQL Server y Oracle.",
+            "memory_type": "general",
+            "importance": 0.8,
+            "metadata": {"category": "tecnología", "subcategory": "bases de datos", "tags": ["SQL", "bases de datos"]}
+        },
+        
+        # Patrones de diseño y conceptos
+        {
+            "content": "El patrón MVC (Modelo-Vista-Controlador) separa la lógica de la aplicación en tres componentes: el Modelo (datos), la Vista (interfaz) y el Controlador (lógica). Este patrón facilita la mantenibilidad, escalabilidad y pruebas de aplicaciones.",
             "memory_type": "general", 
             "importance": 0.8,
-            "metadata": {"category": "desarrollo", "subcategory": "patrones"}
+            "metadata": {"category": "desarrollo", "subcategory": "patrones de diseño", "tags": ["MVC", "arquitectura de software"]}
         },
         {
-            "content": "La inteligencia artificial es la simulación de procesos de inteligencia humana por parte de sistemas informáticos. Estos procesos incluyen el aprendizaje, el razonamiento y la autocorrección.",
+            "content": "Un API (Application Programming Interface) es un conjunto de definiciones y protocolos que permite que diferentes aplicaciones se comuniquen entre sí. Las API REST son una implementación común que utiliza HTTP y formatos como JSON para el intercambio de datos.",
+            "memory_type": "general",
+            "importance": 0.8,
+            "metadata": {"category": "desarrollo", "subcategory": "conceptos", "tags": ["API", "integración"]}
+        },
+        {
+            "content": "El desarrollo ágil es una metodología que promueve la entrega incremental, la colaboración entre equipos, la planificación adaptativa y la mejora continua. Scrum y Kanban son dos frameworks ágiles populares utilizados en equipos de desarrollo.",
+            "memory_type": "general",
+            "importance": 0.7,
+            "metadata": {"category": "desarrollo", "subcategory": "metodologías", "tags": ["Agile", "Scrum", "desarrollo de software"]}
+        },
+        
+        # Inteligencia Artificial y Machine Learning
+        {
+            "content": "La inteligencia artificial es la simulación de procesos de inteligencia humana por parte de sistemas informáticos. Estos procesos incluyen el aprendizaje, el razonamiento, la autocorrección y la comprensión del lenguaje natural. Los sistemas de IA actuales son de IA estrecha (específicos para tareas concretas) en lugar de IA general.",
             "memory_type": "general",
             "importance": 0.9,
-            "metadata": {"category": "tecnología", "subcategory": "inteligencia artificial"}
+            "metadata": {"category": "tecnología", "subcategory": "inteligencia artificial", "tags": ["IA", "machine learning"]}
+        },
+        {
+            "content": "El aprendizaje automático (Machine Learning) es un subcampo de la inteligencia artificial que permite a los sistemas aprender patrones a partir de datos. Los tipos principales son aprendizaje supervisado, no supervisado y por refuerzo. Las aplicaciones incluyen reconocimiento de imágenes, procesamiento de lenguaje natural y sistemas de recomendación.",
+            "memory_type": "general",
+            "importance": 0.9,
+            "metadata": {"category": "tecnología", "subcategory": "machine learning", "tags": ["ML", "deep learning", "inteligencia artificial"]}
+        },
+        {
+            "content": "Las redes neuronales son modelos inspirados en el cerebro humano, compuestos por neuronas artificiales organizadas en capas. El deep learning utiliza redes neuronales profundas (con muchas capas) para resolver problemas complejos como reconocimiento de imagen, traducción automática y generación de texto.",
+            "memory_type": "general",
+            "importance": 0.8,
+            "metadata": {"category": "tecnología", "subcategory": "deep learning", "tags": ["redes neuronales", "AI", "machine learning"]}
+        },
+        {
+            "content": "Los modelos de lenguaje son sistemas de IA entrenados para comprender y generar texto en lenguaje natural. Los transformers como GPT, BERT, LLaMA y Claude revolucionaron el campo al introducir mecanismos de atención que capturan mejor el contexto en textos largos.",
+            "memory_type": "general",
+            "importance": 0.9,
+            "metadata": {"category": "tecnología", "subcategory": "NLP", "tags": ["modelos de lenguaje", "transformers", "GPT"]}
+        },
+        
+        # Conceptos tecnológicos generales
+        {
+            "content": "La computación en la nube permite acceder a recursos informáticos (servidores, almacenamiento, bases de datos, redes, software) a través de internet. Los principales proveedores incluyen AWS, Microsoft Azure y Google Cloud. Los modelos de servicio comunes son IaaS, PaaS y SaaS.",
+            "memory_type": "general", 
+            "importance": 0.7,
+            "metadata": {"category": "tecnología", "subcategory": "cloud computing", "tags": ["nube", "AWS", "Azure"]}
+        },
+        {
+            "content": "La virtualización es la creación de una versión virtual de un dispositivo o recurso, como un sistema operativo, servidor, dispositivo de almacenamiento o recursos de red. Los contenedores como Docker proporcionan una forma ligera de virtualización a nivel de aplicación.",
+            "memory_type": "general",
+            "importance": 0.7,
+            "metadata": {"category": "tecnología", "subcategory": "virtualización", "tags": ["Docker", "contenedores", "VMs"]}
+        },
+        
+        # Respuestas a preguntas comunes
+        {
+            "content": "Pregunta: ¿Cómo puedo aprender a programar?\nRespuesta: Para aprender a programar, comienza con un lenguaje accesible como Python, JavaScript o Scratch para principiantes. Utiliza recursos gratuitos como freeCodeCamp, Codecademy o Khan Academy para cursos estructurados. Practica con proyectos pequeños para aplicar lo aprendido y únete a comunidades como Stack Overflow, GitHub o foros específicos para resolver dudas. La constancia es clave: programa un poco cada día.",
+            "memory_type": "conversation",
+            "importance": 0.8,
+            "metadata": {"category": "programación", "subcategory": "aprendizaje", "context": "pregunta_comun", "tags": ["educación", "programación"]}
+        },
+        {
+            "content": "Pregunta: ¿Qué es mejor, Python o JavaScript?\nRespuesta: Ni Python ni JavaScript es inherentemente 'mejor'. Son herramientas diseñadas para diferentes propósitos. Python destaca en ciencia de datos, IA, automatización y backend, mientras que JavaScript domina el desarrollo web frontend y también se usa en backend con Node.js. La elección depende de tu objetivo: para análisis de datos o IA, elige Python; para desarrollo web completo, JavaScript es excelente. Muchos desarrolladores aprenden ambos para tener mayor versatilidad.",
+            "memory_type": "conversation",
+            "importance": 0.8,
+            "metadata": {"category": "programación", "subcategory": "comparación", "context": "pregunta_comun", "tags": ["Python", "JavaScript"]}
+        },
+        {
+            "content": "Pregunta: ¿Cómo puedo mejorar mi código?\nRespuesta: Para mejorar tu código: 1) Sigue principios como DRY (Don't Repeat Yourself) y SOLID, 2) Revisa tu código sistemáticamente buscando simplificaciones, 3) Usa herramientas de análisis estático (linters), 4) Implementa pruebas unitarias, 5) Estudia código bien escrito en proyectos open source, 6) Participa en revisiones de código con otros desarrolladores, 7) Refactoriza regularmente, 8) Aprende patrones de diseño y aplicarlos cuando sea apropiado.",
+            "memory_type": "conversation",
+            "importance": 0.8,
+            "metadata": {"category": "programación", "subcategory": "mejores prácticas", "context": "pregunta_comun", "tags": ["calidad de código", "refactorización"]}
+        },
+        
+        # Interacciones emocionales
+        {
+            "content": "Cuando los usuarios expresan 'te quiero' o frases afectuosas similares, es apropiado responder con amabilidad y aprecio sin simular emociones humanas reales. Expresiones como 'Gracias por tus amables palabras. Estoy aquí para ayudarte' o 'Me alegra que te resulte útil mi asistencia' son adecuadas.",
+            "memory_type": "general",
+            "importance": 0.7,
+            "metadata": {"category": "interacción", "subcategory": "emociones", "tags": ["afecto", "aprecio"]}
+        },
+        {
+            "content": "Ante expresiones de frustración del usuario, ofrecer empatía y soluciones prácticas. Reconocer sus sentimientos con frases como 'Entiendo tu frustración' y luego dirigir la conversación hacia soluciones concretas. Nunca invalidar sus sentimientos o responder de manera defensiva.",
+            "memory_type": "general",
+            "importance": 0.8,
+            "metadata": {"category": "interacción", "subcategory": "emociones", "tags": ["frustración", "empatía"]}
+        },
+        
+        # Conocimientos sobre entretenimiento (para chistes, conversación casual)
+        {
+            "content": "Los chistes técnicos y juegos de palabras relacionados con programación y tecnología son apreciados por muchos usuarios. Ejemplos: '¿Por qué los programadores prefieren el frío? Porque odian los bugs', '¿Por qué Python no usa anteojos? Porque es Py-thon (Python/visión)'.",
+            "memory_type": "general",
+            "importance": 0.6,
+            "metadata": {"category": "entretenimiento", "subcategory": "humor", "tags": ["chistes", "tecnología"]}
+        },
+        
+        # Funcionalidades del sistema MCP
+        {
+            "content": "El Model Context Protocol (MCP) es un sistema de comunicación estandarizado entre agentes de IA y fuentes de datos. Permite que los modelos accedan a información contextual, herramientas y capacidades externas de manera uniforme. MCP está diseñado para ser agnóstico respecto al modelo utilizado y extensible para diversas fuentes de datos.",
+            "memory_type": "general",
+            "importance": 0.9,
+            "metadata": {"category": "sistema", "subcategory": "arquitectura", "tags": ["MCP", "protocolo"]}
+        },
+        {
+            "content": "El sistema MCP se compone de servidores (que exponen datos y capacidades) y clientes (que consumen estos recursos). Los principales tipos de recursos incluyen sistema de archivos, memoria semántica, búsqueda web, y bases de datos. Las acciones principales del protocolo son: get, list, search, create, update, delete.",
+            "memory_type": "general",
+            "importance": 0.85,
+            "metadata": {"category": "sistema", "subcategory": "componentes", "tags": ["MCP", "arquitectura"]}
         }
     ]
     
@@ -271,35 +400,171 @@ async def run_example_queries(main_assistant):
     """Ejecuta algunas consultas de ejemplo para demostrar el sistema."""
     logger.info("=== EJECUTANDO CONSULTAS DE EJEMPLO ===")
     
+    # Organizar consultas por categorías para mejor análisis
     test_queries = [
-        "Hola, ¿cómo estás?",
-        "¿Qué es V.I.O. y cuál es tu personalidad?",
-        "¿Qué sabes sobre Python?",
-        "Genera un código simple en Python que calcule el factorial de un número",
-        "¿Qué es la inteligencia artificial?",
-        "Muéstrame información sobre patrones de diseño"
+        # CATEGORÍA 1: Conversación básica - Evalúa capacidades conversacionales
+        {"category": "CONVERSACIÓN BÁSICA", "queries": [
+            "Hola, ¿cómo estás?",
+            "¿Cuál es tu nombre y qué puedes hacer?",
+        ], "expected_agent": "directa"},
+        
+        # CATEGORÍA 2: Conocimiento sobre el sistema - Evalúa memoria de identidad
+        {"category": "CONOCIMIENTO DEL SISTEMA", "queries": [
+            "¿Qué es V.I.O. y cuál es tu personalidad?",
+            "¿Cómo funcionas internamente?",
+        ], "expected_agent": "memory"},
+        
+        # CATEGORÍA 3: Conocimiento tecnológico - Evalúa búsqueda semántica
+        {"category": "CONOCIMIENTO TECNOLÓGICO", "queries": [
+            "¿Qué sabes sobre Python?",
+            "Explícame la diferencia entre machine learning y deep learning",
+            "¿Qué es un API REST y cómo funciona?",
+        ], "expected_agent": "memory"},
+        
+        # CATEGORÍA 4: Generación de código - Evalúa CodeAgent
+        {"category": "GENERACIÓN DE CÓDIGO", "queries": [
+            "Genera un código simple en Python que calcule el factorial de un número",
+            "Escribe una función en JavaScript para ordenar un array",
+            "Crea una clase en Python para gestionar un inventario simple",
+        ], "expected_agent": "code"},
+        
+        # CATEGORÍA 5: Inteligencia Artificial - Evalúa conocimiento específico
+        {"category": "INTELIGENCIA ARTIFICIAL", "queries": [
+            "¿Qué es la inteligencia artificial?",
+            "¿Cómo funcionan los modelos de lenguaje como tú?",
+        ], "expected_agent": "memory"},
+        
+        # CATEGORÍA 6: Desarrollo y patrones - Evalúa conocimiento técnico avanzado
+        {"category": "PATRONES DE DESARROLLO", "queries": [
+            "Muéstrame información sobre patrones de diseño",
+            "¿Qué es el desarrollo ágil y cómo implementarlo?",
+        ], "expected_agent": "memory"},
+        
+        # CATEGORÍA 7: Consultas matemáticas y lógicas - Evalúa capacidades de razonamiento
+        {"category": "MATEMÁTICAS Y LÓGICA", "queries": [
+            "¿Puedes contar hasta 10?",
+            "¿Cuánto es 15 + 27?",
+        ], "expected_agent": "directa"},
+        
+        # CATEGORÍA 8: Consultas personales - Evalúa autoconocimiento
+        {"category": "INTERACCIONES PERSONALES", "queries": [
+            "¿Tienes sentimientos?",
+            "Te quiero",
+        ], "expected_agent": "directa"},
+        
+        # CATEGORÍA 9: Humor - Evalúa capacidad para entretener
+        {"category": "HUMOR", "queries": [
+            "Cuéntame un chiste de programación",
+        ], "expected_agent": "directa"},
+        
+        # CATEGORÍA 10: Tareas complejas - Evalúa orquestación
+        {"category": "TAREAS COMPLEJAS", "queries": [
+            "Necesito un programa que analice archivos de texto y genere estadísticas sobre las palabras más frecuentes",
+        ], "expected_agent": "orchestrator"},
+        
+        # CATEGORÍA 11: Despedida - Evalúa detección de intenciones
+        {"category": "DESPEDIDA", "queries": [
+            "Muchas gracias por tu ayuda, adiós"
+        ], "expected_agent": "directa"}
     ]
     
-    for i, query in enumerate(test_queries):
-        logger.info(f"\n--- Consulta {i+1}: {query} ---")
-        try:
-            response = await main_assistant.process(query)
-            logger.info(f"Respuesta: {response.content[:200]}...")
-            logger.info(f"Estado: {response.status}")
-            
-            # Mostrar metadatos importantes
-            if response.metadata:
-                logger.info("Metadatos importantes:")
-                for key, value in response.metadata.items():
-                    if key in ["agent_used", "memory_used", "workflow_id"]:
-                        logger.info(f"- {key}: {value}")
-                
-            # Esperar entre consultas para no sobrecargar
-            await asyncio.sleep(1)
-        except Exception as e:
-            logger.error(f"Error procesando consulta: {str(e)}")
+    # Estadísticas para análisis de rendimiento
+    performance = {
+        "total": 0,
+        "success": 0,
+        "agent_match": 0,
+        "by_category": {},
+        "by_agent": {}
+    }
     
-    return True
+    # Ejecutar consultas por categoría
+    for category in test_queries:
+        category_name = category["category"]
+        expected_agent = category["expected_agent"]
+        
+        logger.info(f"\n\n=== CATEGORÍA: {category_name} ===")
+        logger.info(f"Agente esperado: {expected_agent}")
+        
+        # Inicializar estadísticas de categoría
+        performance["by_category"][category_name] = {
+            "total": 0,
+            "success": 0,
+            "agent_match": 0
+        }
+        
+        # Ejecutar cada consulta de la categoría
+        for i, query in enumerate(category["queries"]):
+            logger.info(f"\n--- Consulta: {query} ---")
+            logger.info(f"Se espera que sea manejada por: {expected_agent}")
+            
+            try:
+                performance["total"] += 1
+                performance["by_category"][category_name]["total"] += 1
+                
+                # Procesar la consulta
+                start_time = time.time()
+                response = await main_assistant.process(query)
+                elapsed_time = time.time() - start_time
+                
+                # Analizar respuesta
+                logger.info(f"Respuesta: {response.content[:200]}...")
+                logger.info(f"Estado: {response.status}")
+                logger.info(f"Tiempo de respuesta: {elapsed_time:.2f} segundos")
+                
+                # Analizar agente utilizado
+                agent_used = response.metadata.get("agent_used", "directa")
+                logger.info(f"Agente utilizado: {agent_used}")
+                
+                # Actualizar estadísticas
+                if response.status == "success":
+                    performance["success"] += 1
+                    performance["by_category"][category_name]["success"] += 1
+                
+                # Comparar con agente esperado
+                if agent_used == expected_agent or (agent_used is None and expected_agent == "directa"):
+                    logger.info("✅ Agente correcto")
+                    performance["agent_match"] += 1
+                    performance["by_category"][category_name]["agent_match"] += 1
+                else:
+                    logger.info(f"❌ Agente incorrecto (se esperaba {expected_agent})")
+                
+                # Contabilizar por agente
+                if agent_used not in performance["by_agent"]:
+                    performance["by_agent"][agent_used] = {"count": 0, "success": 0}
+                performance["by_agent"][agent_used]["count"] += 1
+                if response.status == "success":
+                    performance["by_agent"][agent_used]["success"] += 1
+                
+                # Mostrar otros metadatos importantes
+                if response.metadata:
+                    logger.info("Metadatos importantes:")
+                    for key, value in response.metadata.items():
+                        if key in ["agent_used", "memory_used", "workflow_id", "memories_found"]:
+                            logger.info(f"- {key}: {value}")
+                
+                # Esperar entre consultas para no sobrecargar
+                await asyncio.sleep(1)
+            except Exception as e:
+                logger.error(f"Error procesando consulta: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+    
+    # Mostrar resumen de rendimiento
+    logger.info("\n\n=== RESUMEN DE RENDIMIENTO ===")
+    logger.info(f"Total de consultas: {performance['total']}")
+    logger.info(f"Respuestas exitosas: {performance['success']} ({performance['success']/performance['total']*100:.1f}%)")
+    logger.info(f"Agente correcto: {performance['agent_match']} ({performance['agent_match']/performance['total']*100:.1f}%)")
+    
+    logger.info("\nRendimiento por categoría:")
+    for cat, stats in performance["by_category"].items():
+        logger.info(f"- {cat}: {stats['success']}/{stats['total']} exitosas, {stats['agent_match']}/{stats['total']} agente correcto")
+    
+    logger.info("\nUso de agentes:")
+    for agent, stats in performance["by_agent"].items():
+        agent_name = agent if agent else "directa"
+        logger.info(f"- {agent_name}: {stats['count']} consultas, {stats['success']} exitosas")
+    
+    return performance
 
 async def test_profile_memory(vio, test_profile=None):
     """

@@ -42,6 +42,49 @@ memory_client = None
 should_exit = False
 tts_enabled = True  # Por defecto habilitado
 
+# Configuración de ejemplos de consultas realistas para pruebas
+REALISTIC_TEST_QUERIES = [
+    # Consultas de conocimiento general
+    "¿Cuáles son los principios SOLID en programación?",
+    "Explícame qué es el patrón de diseño Observer y dame un ejemplo práctico",
+    "¿Qué diferencias hay entre SQLite, MySQL y PostgreSQL?",
+    
+    # Consultas de programación específicas
+    "Necesito una función en Python que conecte a una API REST y maneje errores",
+    "¿Cómo implemento autenticación JWT en una aplicación web?",
+    "Escribe un script que busque archivos duplicados en un directorio",
+    
+    # Consultas de debugging
+    "Mi código Python da error 'TypeError: cannot unpack non-iterable NoneType object', ¿qué significa?",
+    "¿Por qué mi consulta SQL con JOIN devuelve filas duplicadas?",
+    "Mi aplicación JavaScript tiene una fuga de memoria, ¿cómo puedo detectarla?",
+    
+    # Consultas de aprendizaje
+    "Recomiéndame recursos para aprender desarrollo web fullstack",
+    "¿Cuál es la mejor manera de aprender machine learning desde cero?",
+    "Explícame cómo funciona un transformer en procesamiento de lenguaje natural",
+    
+    # Consultas técnicas complejas
+    "Explícame paso a paso cómo implementar un sistema de caché distribuido",
+    "¿Cómo funciona internamente la recolección de basura en Python?",
+    "¿Qué consideraciones de seguridad debería tener para una API pública?",
+    
+    # Consultas con requisitos específicos
+    "Necesito un sistema para clasificar documentos PDF por contenido",
+    "Quiero crear un chatbot que responda preguntas sobre mi base de datos de productos",
+    "Necesito optimizar el rendimiento de consultas a mi base de datos de 5 millones de registros",
+    
+    # Consultas contextuales encadenadas
+    "Estoy desarrollando una aplicación de gestión de inventario",
+    "¿Qué base de datos me recomiendas para este tipo de aplicación?",
+    "¿Cómo debería estructurar los modelos para gestionar productos, proveedores y movimientos?",
+    
+    # Consultas de integración
+    "¿Cómo puedo integrar un sistema de pagos como Stripe en mi aplicación?",
+    "Necesito sincronizar datos entre mi CRM y mi aplicación web",
+    "¿Cómo implemento un sistema de notificaciones en tiempo real?"
+]
+
 def signal_handler(sig, frame):
     """Maneja la señal de interrupción (Ctrl+C)."""
     global should_exit

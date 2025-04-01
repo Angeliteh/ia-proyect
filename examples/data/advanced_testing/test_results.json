@@ -1,0 +1,194 @@
+{
+  "code_development": {
+    "scenario": "code_development",
+    "queries": [
+      {
+        "name": "Inicio de proyecto",
+        "query": "Quiero crear un proyecto de Python para analizar datos de ventas desde archivos CSV. ¿Cómo organizarías la estructura del proyecto?",
+        "expected_agent": "code",
+        "expected_concepts": [
+          "estructura de proyecto",
+          "análisis datos",
+          "python",
+          "csv"
+        ],
+        "response": "```python\n# Estructura del proyecto:\n#\n# sales_analyzer/\n#   ├── data/          # Carpeta para almacenar los archivos CSV de datos de ventas.\n#   ├── src/           # Carpeta para el código fuente del proyecto.\n#   │   ├── __init__.py\n#   │   ├── data_loader.py  # Módulo para cargar datos desde archivos CSV.\n#   │   ├── data_processor.py # Módulo para procesar y limpiar los datos.\n#   │   ├── analyzer.py       # Módulo para realizar análisis de ventas.\n#   │   ├── visualizer.py     # Módulo para generar visualizaciones.\n#   │   └── main.py         # Punto de entrada principal del programa.\n#   ├── tests/         # Carpeta para las pruebas unitarias.\n#   │   ├── __init__.py\n#   │   ├── test_data_loader.py\n#   │   ├── test_data_processor.py\n#   │   └── test_analyzer.py\n#   ├── README.md      # Documentación del proyecto.\n#   ├── requirements.txt # Lista de dependencias del proyecto.\n#   └── .gitignore     # Archivo para ignorar archivos no deseados en Git.\n\n# src/data_loader.py\nimport pandas as pd\n\ndef load_data(file_path):\n    \"\"\"Carga datos desde un archivo CSV usando pandas.\"\"\"\n    try:\n        df = pd.read_csv(file_path)\n        return df\n    except FileNotFoundError:\n        print(f\"Error: El archivo {file_path} no se encuentra.\")\n        return None\n    except pd.errors.EmptyDataError:\n        print(f\"Error: El archivo {file_path} está vacío.\")\n        return None\n    except pd.errors.ParserError:\n        print(f\"Error: Error al parsear el archivo {file_path}.  Verifica el formato CSV.\")\n        return None\n\n\n# src/data_processor.py\nimport pandas as pd\n\ndef clean_data(df):\n    \"\"\"Limpia los datos, eliminando filas con valores nulos.\"\"\"\n    df_cleaned = df.dropna()\n    return df_cleaned\n\ndef convert_column_to_numeric(df, column_name):\n    \"\"\"Convierte una columna a tipo numérico, manejando errores.\"\"\"\n    try:\n        df[column_name] = pd.to_numeric(df[column_name], errors='raise') # 'raise' lanza un error si no puede convertir\n        return df\n    except ValueError as e:\n        print(f\"Error al convertir la columna '{column_name}' a numérica: {e}\")\n        return None\n\n\n\n# src/analyzer.py\nimport pandas as pd\n\ndef calculate_total_sales(df, price_column, quantity_column):\n    \"\"\"Calcula las ventas totales.\"\"\"\n    try:\n        total_sales = (df[price_column] * df[quantity_column]).sum()\n        return total_sales\n    except KeyError as e:\n        print(f\"Error: Columna no encontrada: {e}\")\n        return None\n\n\ndef get_top_products(df, product_column, price_column, quantity_column, top_n=10):\n    \"\"\"Obtiene los N productos más vendidos.\"\"\"\n    try:\n        df['total_revenue'] = df[price_column] * df[quantity_column]\n        product_sales = df.groupby(product_column)['total_revenue'].sum()\n        top_products = product_sales.nlargest(top_n)\n        return top_products\n    except KeyError as e:\n        print(f\"Error: Columna no encontrada: {e}\")\n        return None\n\n\n# src/visualizer.py\nimport matplotlib.pyplot as plt\nimport pandas as pd\n\ndef plot_top_products(top_products, title=\"Top Productos\"):\n    \"\"\"Genera un gráfico de barras de los productos más vendidos.\"\"\"\n    if top_products is None or top_products.empty:\n        print(\"No hay datos para visualizar.\")\n        return\n\n    top_products.plot(kind='bar', title=title)\n    plt.xlabel(\"Producto\")\n    plt.ylabel(\"Ventas Totales\")\n    plt.xticks(rotation=45, ha=\"right\")  # Rotar las etiquetas del eje x para mejor legibilidad\n    plt.tight_layout() # Ajustar el diseño para evitar que las etiquetas se superpongan\n    plt.show()\n\n\n# src/main.py\nimport os\nfrom src.data_loader",
+        "agent_used": "code",
+        "response_time": 5.454879283905029,
+        "status": "success",
+        "agent_match": true,
+        "concept_coverage": 0.5,
+        "concepts_found": 2,
+        "total_concepts": 4
+      },
+      {
+        "name": "Solicitud de código específico",
+        "query": "Escribe una función que lea archivos CSV y los convierta en un DataFrame de pandas, manejando errores comunes como celdas vacías",
+        "expected_agent": "code",
+        "expected_concepts": [
+          "pandas",
+          "dataframe",
+          "csv",
+          "manejo errores"
+        ],
+        "response": "import pandas as pd\n\ndef csv_to_dataframe(archivo_csv):\n    \"\"\"\n    Lee un archivo CSV y lo convierte en un DataFrame de pandas, manejando errores comunes.\n\n    Args:\n        archivo_csv (str): La ruta al archivo CSV.\n\n    Returns:\n        pandas.DataFrame: Un DataFrame de pandas con los datos del CSV, o None si hay un error.\n    \"\"\"\n    try:\n        df = pd.read_csv(archivo_csv, na_filter=True)  # Usa na_filter para manejar celdas vacías como NaN\n        return df\n    except FileNotFoundError:\n        print(f\"Error: Archivo no encontrado: {archivo_csv}\")\n        return None\n    except pd.errors.EmptyDataError:\n        print(f\"Error: El archivo CSV está vacío: {archivo_csv}\")\n        return None\n    except pd.errors.ParserError:\n        print(f\"Error: Error al analizar el archivo CSV: {archivo_csv}.  Asegúrese de que el archivo esté bien formado.\")\n        return None\n    except Exception as e:\n        print(f\"Error inesperado al leer el archivo CSV: {e}\")\n        return None\n\n\nif __name__ == '__main__':\n    # Ejemplo de uso\n    archivo_prueba = 'prueba.csv'  # Reemplaza con tu archivo\n\n    # Crea un archivo CSV de prueba (opcional)\n    data = {'col1': [1, 2, None, 4], 'col2': ['a', 'b', '', 'd'], 'col3': [5.5, 6.6, 7.7, 8.8]}\n    df_prueba = pd.DataFrame(data)\n    df_prueba.to_csv(archivo_prueba, index=False)\n\n\n    df = csv_to_dataframe(archivo_prueba)\n\n    if df is not None:\n        print(\"DataFrame resultante:\")\n        print(df)\n        print(\"\\nInformación del DataFrame (tipos de datos, valores no nulos):\")\n        print(df.info())\n        print(\"\\nValores nulos por columna:\")\n        print(df.isnull().sum())",
+        "agent_used": "code",
+        "response_time": 2.602057456970215,
+        "status": "success",
+        "agent_match": true,
+        "concept_coverage": 0.75,
+        "concepts_found": 3,
+        "total_concepts": 4
+      },
+      {
+        "name": "Consulta de error",
+        "query": "Estoy recibiendo el error 'KeyError: 'ventas'' cuando intento acceder a una columna del DataFrame. ¿Qué puede estar pasando?",
+        "expected_agent": "code",
+        "expected_concepts": [
+          "keyerror",
+          "dataframe",
+          "debugging",
+          "pandas"
+        ],
+        "response": "System Information:\n\nSystem: Windows\nNode: Pc\nRelease: 11\nVersion: 10.0.26100\nMachine: AMD64\nProcessor: Intel64 Family 6 Model 151 Stepping 5, GenuineIntel\nMemory Total: 15.86 GB GB\nMemory Available: 4.71 GB GB\nMemory Used: 70.3%\nDisk Total: 464.98 GB GB\nDisk Free: 105.48 GB GB\nDisk Used: 77.3%\n\nCPU Information:\n\nPhysical Cores: 6\nLogical Cores: 12\nCPU Usage: 42.4%\n",
+        "agent_used": "system",
+        "response_time": 1.0559086799621582,
+        "status": "success",
+        "agent_match": false,
+        "concept_coverage": 0.0,
+        "concepts_found": 0,
+        "total_concepts": 4
+      },
+      {
+        "name": "Mejora de rendimiento",
+        "query": "El procesamiento es muy lento con archivos grandes. ¿Cómo puedo optimizar mi código de pandas para manejar millones de filas?",
+        "expected_agent": "code",
+        "expected_concepts": [
+          "optimización",
+          "pandas",
+          "rendimiento",
+          "big data"
+        ],
+        "response": "System Information:\n\nSystem: Windows\nNode: Pc\nRelease: 11\nVersion: 10.0.26100\nMachine: AMD64\nProcessor: Intel64 Family 6 Model 151 Stepping 5, GenuineIntel\nMemory Total: 15.86 GB GB\nMemory Available: 4.71 GB GB\nMemory Used: 70.3%\nDisk Total: 464.98 GB GB\nDisk Free: 105.48 GB GB\nDisk Used: 77.3%\n\nCPU Information:\n\nPhysical Cores: 6\nLogical Cores: 12\nCPU Usage: 33.5%\n",
+        "agent_used": "system",
+        "response_time": 1.0295071601867676,
+        "status": "success",
+        "agent_match": false,
+        "concept_coverage": 0.0,
+        "concepts_found": 0,
+        "total_concepts": 4
+      },
+      {
+        "name": "Integración con otras herramientas",
+        "query": "¿Cómo puedo integrar mi análisis de datos con una visualización web usando Dash o Streamlit?",
+        "expected_agent": "code",
+        "expected_concepts": [
+          "dash",
+          "streamlit",
+          "visualización",
+          "web"
+        ],
+        "response": "Para mejorar tu código: 1) Sigue principios como DRY (Don't Repeat Yourself) y SOLID, 2) Revisa tu código sistemáticamente buscando simplificaciones, 3) Usa herramientas de análisis estático (linters), 4) Implementa pruebas unitarias, 5) Estudia código bien escrito en proyectos open source, 6) Participa en revisiones de código con otros desarrolladores, 7) Refactoriza regularmente, 8) Aprende patrones de diseño y aplicarlos cuando sea apropiado.",
+        "agent_used": "memory",
+        "response_time": 0.0280148983001709,
+        "status": "success",
+        "agent_match": false,
+        "concept_coverage": 0.0,
+        "concepts_found": 0,
+        "total_concepts": 4
+      }
+    ],
+    "summary": {
+      "total": 5,
+      "success": 5,
+      "agent_match": 2,
+      "avg_response_time": 2.034073495864868
+    }
+  },
+  "knowledge_inquiry": {
+    "scenario": "knowledge_inquiry",
+    "queries": [
+      {
+        "name": "Conceptos fundamentales",
+        "query": "Explícame el concepto de contenedores y cómo difieren de las máquinas virtuales",
+        "expected_agent": "memory",
+        "expected_concepts": [
+          "contenedores",
+          "docker",
+          "máquinas virtuales",
+          "virtualización"
+        ],
+        "response": "# Explicación del concepto de contenedores y su diferencia con las máquinas virtuales\n\n# Contenedores:\n#   - Aislamiento a nivel de proceso: Comparten el kernel del SO anfitrión.\n#   - Rápidos y ligeros:  Menor sobrecarga, inicio rápido.\n#   - Portables: Se ejecutan de forma consistente en diferentes entornos.\n#   - Utilizan namespaces y cgroups para el aislamiento de recursos.\n\n# Máquinas Virtuales (VMs):\n#   - Aislamiento a nivel de hardware: Cada VM tiene su propio sistema operativo (SO).\n#   - Más pesadas: Mayor sobrecarga debido al SO invitado.\n#   - Requieren un hipervisor:  Para gestionar y virtualizar el hardware.\n#   - Mayor aislamiento:  Aislamiento completo del SO.\n\n# Ejemplo ilustrativo (no ejecutable directamente, conceptual):\n\n# Contenedor (Docker):\n#   docker run -d -p 80:80 nginx  # Inicia un contenedor nginx que escucha en el puerto 80\n\n# Máquina Virtual (VirtualBox/VMware):\n#   (Proceso manual: Crear una VM, instalar un SO (Linux, Windows), configurar la red, instalar aplicaciones)\n\n# Diferencias clave resumidas:\n#   - Aislamiento: Proceso (Contenedores) vs. Hardware (VMs)\n#   - Rendimiento: Más rápido (Contenedores) vs. Más lento (VMs)\n#   - Tamaño: Más pequeño (Contenedores) vs. Más grande (VMs)\n#   - Uso de recursos: Menos (Contenedores) vs. Más (VMs)",
+        "agent_used": "code",
+        "response_time": 2.6660313606262207,
+        "status": "success",
+        "agent_match": false,
+        "concept_coverage": 0.75,
+        "concepts_found": 3,
+        "total_concepts": 4
+      },
+      {
+        "name": "Arquitectura software",
+        "query": "¿Qué es la arquitectura hexagonal y en qué situaciones es útil aplicarla?",
+        "expected_agent": "memory",
+        "expected_concepts": [
+          "arquitectura hexagonal",
+          "puertos y adaptadores",
+          "clean architecture"
+        ],
+        "response": "Ni Python ni JavaScript es inherentemente 'mejor'. Son herramientas diseñadas para diferentes propósitos. Python destaca en ciencia de datos, IA, automatización y backend, mientras que JavaScript domina el desarrollo web frontend y también se usa en backend con Node.js. La elección depende de tu objetivo: para análisis de datos o IA, elige Python; para desarrollo web completo, JavaScript es excelente. Muchos desarrolladores aprenden ambos para tener mayor versatilidad.",
+        "agent_used": "memory",
+        "response_time": 0.025667667388916016,
+        "status": "success",
+        "agent_match": true,
+        "concept_coverage": 0.0,
+        "concepts_found": 0,
+        "total_concepts": 3
+      },
+      {
+        "name": "Tecnologías emergentes",
+        "query": "¿Cómo funcionan los modelos de aprendizaje por refuerzo y dónde se aplican?",
+        "expected_agent": "memory",
+        "expected_concepts": [
+          "refuerzo",
+          "RL",
+          "machine learning",
+          "aplicaciones"
+        ],
+        "response": "```python\n# Estructura del proyecto:\n#\n# sales_analyzer/\n#   ├── data/          # Carpeta para almacenar los archivos CSV de datos de ventas.\n#   ├── src/           # Carpeta para el código fuente del proyecto.\n#   │   ├── __init__.py\n#   │   ├── data_loader.py  # Módulo para cargar datos desde archivos CSV.\n#   │   ├── data_processor.py # Módulo para procesar y limpiar los datos.\n#   │   ├── analyzer.py       # Módulo para realizar análisis de ventas.\n#   │   ├── visualizer.py     # Módulo para generar visualizaciones.\n#   │   └── main.py         # Punto de entrada principal del programa.\n#   ├── tests/         # Carpeta para las pruebas unitarias.\n#   │   ├── __init__.py\n#   │   ├── test_data_loader.py\n#   │   ├── test_data_processor.py\n#   │   └── test_analyzer.py\n#   ├── README.md      # Documentación del proyecto.\n#   ├── requirements.txt # Lista de dependencias del proyecto.\n#   └── .gitignore     # Archivo para ignorar archivos no deseados en Git.\n\n# src/data_loader.py\nimport pandas as pd\n\ndef load_data(file_path):\n    \"\"\"Carga datos desde un archivo CSV usando pandas.\"\"\"\n    try:\n        df = pd.read_csv(file_path)\n        return df\n    except FileNotFoundError:\n        print(f\"Error: El archivo {file_path} no se encuentra.\")\n        return None\n    except pd.errors.EmptyDataError:\n        print(f\"Error: El archivo {file_path} está vacío.\")\n        return None\n    except pd.errors.ParserError:\n        print(f\"Error: Error al parsear el archivo {file_path}.  Verifica el formato CSV.\")\n        return None\n\n\n# src/data_processor.py\nimport pandas as pd\n\ndef clean_data(df):\n    \"\"\"Limpia los datos, eliminando filas con valores nulos.\"\"\"\n    df_cleaned = df.dropna()\n    return df_cleaned\n\ndef convert_column_to_numeric(df, column_name):\n    \"\"\"Convierte una columna a tipo numérico, manejando errores.\"\"\"\n    try:\n        df[column_name] = pd.to_numeric(df[column_name], errors='raise') # 'raise' lanza un error si no puede convertir\n        return df\n    except ValueError as e:\n        print(f\"Error al convertir la columna '{column_name}' a numérica: {e}\")\n        return None\n\n\n\n# src/analyzer.py\nimport pandas as pd\n\ndef calculate_total_sales(df, price_column, quantity_column):\n    \"\"\"Calcula las ventas totales.\"\"\"\n    try:\n        total_sales = (df[price_column] * df[quantity_column]).sum()\n        return total_sales\n    except KeyError as e:\n        print(f\"Error: Columna no encontrada: {e}\")\n        return None\n\n\ndef get_top_products(df, product_column, price_column, quantity_column, top_n=10):\n    \"\"\"Obtiene los N productos más vendidos.\"\"\"\n    try:\n        df['total_revenue'] = df[price_column] * df[quantity_column]\n        product_sales = df.groupby(product_column)['total_revenue'].sum()\n        top_products = product_sales.nlargest(top_n)\n        return top_products\n    except KeyError as e:\n        print(f\"Error: Columna no encontrada: {e}\")\n        return None\n\n\n# src/visualizer.py\nimport matplotlib.pyplot as plt\nimport pandas as pd\n\ndef plot_top_products(top_products, title=\"Top Productos\"):\n    \"\"\"Genera un gráfico de barras de los productos más vendidos.\"\"\"\n    if top_products is None or top_products.empty:\n        print(\"No hay datos para visualizar.\")\n        return\n\n    top_products.plot(kind='bar', title=title)\n    plt.xlabel(\"Producto\")\n    plt.ylabel(\"Ventas Totales\")\n    plt.xticks(rotation=45, ha=\"right\")  # Rotar las etiquetas del eje x para mejor legibilidad\n    plt.tight_layout() # Ajustar el diseño para evitar que las etiquetas se superpongan\n    plt.show()\n\n\n# src/main.py\nimport os\nfrom src.data_loader\n```python\n# Estructura del proyecto:\n#\n# sales_analyzer/\n#   ├── data/          # Carpeta para almacenar los archivos CSV de datos de ventas.\n#   ├── src/           # Carpeta para el código fuente del proyecto.\n#   │   ├── __init__.py\n#   │   ├── data_loader.py  # Módulo para cargar datos desde archivos CSV.\n#   │   ├── data_processor.py # Módulo para procesar y limpiar los datos.\n#   │   ├── analyzer.py       # Módulo para realizar análisis de ventas.\n#   │   ├── visualizer.py     # Módulo para generar visualizaciones.\n#   │   └── main.py         # Punto de entrada principal del programa.\n#   ├── tests/         # Carpeta para las pruebas unitarias.\n#   │   ├── __init__.py\n#   │   ├── test_data_loader.py\n#   │   ├── test_data_processor.py\n#   │   └── test_analyzer.py\n#   ├── README.md      # Documentación del proyecto.\n#   ├── requirements.txt # Lista de dependencias del proyecto.\n#   └── .gitignore     # Archivo para ignorar archivos no deseados en Git.\n\n# src/data_loader.py\nimport pandas as pd\n\ndef load_data(file_path):\n    \"\"\"Carga datos desde un archivo CSV usando pandas.\"\"\"\n    try:\n        df = pd.read_csv(file_path)\n        return df\n    except FileNotFoundError:\n        print(f\"Error: El archivo {file_path} no se encuentra.\")\n        return None\n    except pd.errors.EmptyDataError:\n        print(f\"Error: El archivo {file_path} está vacío.\")\n        return None\n    except pd.errors.ParserError:\n        print(f\"Error: Error al parsear el archivo {file_path}.  Verifica el formato CSV.\")\n        return None\n\n\n# src/data_processor.py\nimport pandas as pd\n\ndef clean_data(df):\n    \"\"\"Limpia los datos, eliminando filas con valores nulos.\"\"\"\n    df_cleaned = df.dropna()\n    return df_cleaned\n\ndef convert_column_to_numeric(df, column_name):\n    \"\"\"Convierte una columna a tipo numérico, manejando errores.\"\"\"\n    try:\n        df[column_name] = pd.to_numeric(df[column_name], errors='raise') # 'raise' lanza un error si no puede convertir\n        return df\n    except ValueError as e:\n        print(f\"Error al convertir la columna '{column_name}' a numérica: {e}\")\n        return None\n\n\n\n# src/analyzer.py\nimport pandas as pd\n\ndef calculate_total_sales(df, price_column, quantity_column):\n    \"\"\"Calcula las ventas totales.\"\"\"\n    try:\n        total_sales = (df[price_column] * df[quantity_column]).sum()\n        return total_sales\n    except KeyError as e:\n        print(f\"Error: Columna no encontrada: {e}\")\n        return None\n\n\ndef get_top_products(df, product_column, price_column, quantity_column, top_n=10):\n    \"\"\"Obtiene los N productos más vendidos.\"\"\"\n    try:\n        df['total_revenue'] = df[price_column] * df[quantity_column]\n        product_sales = df.groupby(product_column)['total_revenue'].sum()\n        top_products = product_sales.nlargest(top_n)\n        return top_products\n    except KeyError as e:\n        print(f\"Error: Columna no encontrada: {e}\")\n        return None\n\n\n# src/visualizer.py\nimport matplotlib.pyplot as plt\nimport pandas as pd\n\ndef plot_top_products(top_products, title=\"Top Productos\"):\n    \"\"\"Genera un gráfico de barras de los productos más vendidos.\"\"\"\n    if top_products is None or top_products.empty:\n        print(\"No hay datos para visualizar.\")\n        return\n\n    top_products.plot(kind='bar', title=title)\n    plt.xlabel(\"Producto\")\n    plt.ylabel(\"Ventas Totales\")\n    plt.xticks(rotation=45, ha=\"right\")  # Rotar las etiquetas del eje x para mejor legibilidad\n    plt.tight_layout() # Ajustar el diseño para evitar que las etiquetas se superpongan\n    plt.show()\n\n\n# src/main.py\nimport os\nfrom src.data_loader",
+        "agent_used": "directa",
+        "response_time": 0.011548042297363281,
+        "status": "success",
+        "agent_match": false,
+        "concept_coverage": 0.0,
+        "concepts_found": 0,
+        "total_concepts": 4
+      },
+      {
+        "name": "Historia tecnológica",
+        "query": "¿Cómo ha evolucionado JavaScript desde sus inicios hasta hoy?",
+        "expected_agent": "memory",
+        "expected_concepts": [
+          "javascript",
+          "evolución",
+          "ecmascript",
+          "historia"
+        ],
+        "response": "// Breve historia de JavaScript en código (simulado)\n\n(function() {\n\n  // 1. Netscape Navigator (1995): LiveScript -> JavaScript\n  console.log(\"1995: JavaScript nace como 'LiveScript' para Netscape.  Rápidamente renombrado a JavaScript por razones de marketing (Java era popular).  Su propósito principal era añadir interactividad al navegador.\");\n\n  // 2. Estandarización ECMA (1997): ECMAScript 1\n  console.log(\"1997: ECMAScript 1.  Primer intento de estandarización para evitar que JavaScript se fragmentara entre navegadores.\");\n\n  // 3. Auge de AJAX (principios de los 2000):  Más allá de la validación de formularios\n  console.log(\"Principios de los 2000: AJAX (Asynchronous JavaScript and XML) revoluciona la web. JavaScript se usa para interactuar con el servidor en segundo plano, permitiendo actualizaciones dinámicas de la página sin recargarla.\");\n\n  // 4. jQuery y otras librerías (mediados de los 2000): Simplificación del DOM\n  console.log(\"Mediados de los 2000:  Librerías como jQuery simplifican la manipulación del DOM y las interacciones AJAX, haciendo el desarrollo web más accesible.\");\n\n  // 5. Node.js (2009): JavaScript en el servidor\n  console.log(\"2009: Node.js permite ejecutar JavaScript en el servidor.  Un gran paso, ya que JavaScript ya no está limitado al navegador.\");\n\n  // 6. ECMAScript 5 (2009):  Mejoras en el lenguaje\n  console.log(\"2009: ECMAScript 5 introduce características importantes como 'strict mode', JSON nativo y métodos para manipular arrays.\");\n\n  // 7. ECMAScript 6 / ES2015 (2015):  Una revolución\n  console.log(\"2015: ECMAScript 6 (ES2015) es una actualización masiva.  Introduce clases, módulos, arrow functions, let/const, promesas, desestructuración y mucho más.  Moderniza JavaScript significativamente.\");\n\n  // Ejemplo de ES6 (ES2015)\n  const saludo = (nombre) => `Hola, ${nombre}!`;\n  console.log(\"Ejemplo ES6: \" + saludo(\"Mundo\"));\n\n  // 8.  ES2016 - ES2023 (y más allá):  Actualizaciones anuales\n  console.log(\"2016-Presente:  ECMAScript sigue evolucionando con actualizaciones anuales. Se añaden características como async/await, operadores exponenciales, Object.entries, etc.  El lenguaje se mantiene relevante y competitivo.\");\n\n  // 9.  JavaScript hoy:  Ubicuidad\n  console.log(\"Hoy: JavaScript es omnipresente.  Se usa en el front-end, back-end, aplicaciones móviles (React Native), escritorio (Electron), IoT y mucho más.  Es un lenguaje fundamental para el desarrollo de software moderno.\");\n\n})();",
+        "agent_used": "code",
+        "response_time": 4.52096962928772,
+        "status": "success",
+        "agent_match": false,
+        "concept_coverage": 1.0,
+        "concepts_found": 4,
+        "total_concepts": 4
+      }
+    ],
+    "summary": {
+      "total": 4,
+      "success": 4,
+      "agent_match": 1,
+      "avg_response_time": 1.806054174900055
+    }
+  }
+}
