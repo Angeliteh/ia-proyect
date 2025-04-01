@@ -1,5 +1,5 @@
 {
-  "last_updated": "2025-03-31T17:32:20.351548",
+  "last_updated": "2025-03-31T21:25:48.994723",
   "files": {
     "tts_es_-1248113702919262210.mp3": {
       "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-1248113702919262210.mp3",
@@ -401,8 +401,8 @@
       "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_1486876939593335809.mp3",
       "hash": "dd4eb0817927fe3e6464243c61c63be7",
       "created_at": "2025-03-31T17:28:08.259746",
-      "last_used": "2025-03-31T17:28:08.262746",
-      "usage_count": 2,
+      "last_used": "2025-03-31T20:24:49.831884",
+      "usage_count": 8,
       "metadata": {
         "text": "Soy V.I.O.. Hey, \u00bfqu\u00e9 tal? Soy V.I.O., tu asistente personal. \u00bfEn qu\u00e9 puedo echarte una mano hoy?",
         "voice_id": "es-male-1",
@@ -413,8 +413,8 @@
       "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-345241420030968835.mp3",
       "hash": "ae05ffd9f45dda5fe5422a537ec08126",
       "created_at": "2025-03-31T17:28:39.582490",
-      "last_used": "2025-03-31T17:28:39.585020",
-      "usage_count": 2,
+      "last_used": "2025-03-31T19:39:14.757315",
+      "usage_count": 4,
       "metadata": {
         "text": "Soy V.I.O.. Informaci\u00f3n encontrada en mi memoria:\n\n1. V.I.O. (Virtual Intelligence Operator) es un s...",
         "voice_id": "es-male-1",
@@ -465,6 +465,174 @@
       "usage_count": 1,
       "metadata": {
         "text": "Soy V.I.O.. No encontr\u00e9 informaci\u00f3n sobre 'Mu\u00e9strame informaci\u00f3n sobre patrones de dise\u00f1o' en mi mem...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_685371826787353603.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_685371826787353603.mp3",
+      "hash": "277c6bba09743c2db14ee61719fc066a",
+      "created_at": "2025-03-31T18:03:03.299276",
+      "last_used": "2025-03-31T20:25:11.206429",
+      "usage_count": 9,
+      "metadata": {
+        "text": "Soy V.I.O.. No estoy seguro de c\u00f3mo manejar esto directamente. D\u00e9jame intentar delegarlo a un agente...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_1707036914340549635.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_1707036914340549635.mp3",
+      "hash": "ac9536bf397ecb597c55b2bddd0fd0fc",
+      "created_at": "2025-03-31T18:12:03.787656",
+      "last_used": "2025-03-31T18:12:03.793666",
+      "usage_count": 2,
+      "metadata": {
+        "text": "Soy V.I.O.. No encontr\u00e9 informaci\u00f3n sobre 'El TestSenderAgent acaba de enviar un mensaje al EchoAgen...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-695620545727217666.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-695620545727217666.mp3",
+      "hash": "a209a9e4300bea032b0faa8d961e3404",
+      "created_at": "2025-03-31T18:12:34.365699",
+      "last_used": "2025-03-31T18:12:34.369216",
+      "usage_count": 2,
+      "metadata": {
+        "text": "Soy V.I.O.. Informaci\u00f3n encontrada en mi memoria:\n\n1. La integraci\u00f3n entre agentes permite que compa...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-202949419517349890.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-202949419517349890.mp3",
+      "hash": "b8c10b5db554f9922be4e72a1a33d631",
+      "created_at": "2025-03-31T18:13:10.494963",
+      "last_used": "2025-03-31T18:13:10.494963",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy V.I.O.. Informaci\u00f3n encontrada en mi memoria:\n\n1. Python es un lenguaje de programaci\u00f3n interpre...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_633942150075526912.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_633942150075526912.mp3",
+      "hash": "69268eafb57ecc67aca76ab971193a61",
+      "created_at": "2025-03-31T19:15:05.658185",
+      "last_used": "2025-03-31T19:35:26.638889",
+      "usage_count": 6,
+      "metadata": {
+        "text": "Soy V.I.O.. No encontr\u00e9 informaci\u00f3n sobre '\u00bfCu\u00e1nta memoria RAM tiene el sistema?' en mi memoria.",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-1983056000022268928.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-1983056000022268928.mp3",
+      "hash": "47f44e6735f464e3f827cabd7f2e01d1",
+      "created_at": "2025-03-31T19:15:27.082427",
+      "last_used": "2025-03-31T19:36:20.779876",
+      "usage_count": 6,
+      "metadata": {
+        "text": "Soy V.I.O.. No encontr\u00e9 informaci\u00f3n sobre '\u00bfQu\u00e9 sabes sobre los tomates?' en mi memoria.",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-132196758364722689.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-132196758364722689.mp3",
+      "hash": "dc9748744ee1417244546a9185ef21f5",
+      "created_at": "2025-03-31T19:16:03.200739",
+      "last_used": "2025-03-31T19:16:03.200739",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy V.I.O.. import psutil\nimport datetime\nimport time\n\ndef obtener_uso_sistema():\n    \"\"\"Obtiene las...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_1235983886117452801.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_1235983886117452801.mp3",
+      "hash": "df0979a959e6ee516ab265b7439fa066",
+      "created_at": "2025-03-31T19:30:20.727669",
+      "last_used": "2025-03-31T19:30:20.730718",
+      "usage_count": 2,
+      "metadata": {
+        "text": "Soy V.I.O.. def sumar_dos_numeros(a, b):\n  \"\"\"\n  Suma dos n\u00fameros.\n\n  Args:\n    a: El primer n\u00famero....",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-392699998965696515.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-392699998965696515.mp3",
+      "hash": "82edd90a0a7bfdbea40bfd9d44190c3c",
+      "created_at": "2025-03-31T19:31:50.946213",
+      "last_used": "2025-03-31T19:31:50.946213",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy V.I.O.. import psutil\nimport time\nimport datetime\n\ndef obtener_uso_sistema():\n    \"\"\"Obtiene m\u00e9t...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_-1387700376904922880.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_-1387700376904922880.mp3",
+      "hash": "6a507cade0954bff7027c469e6ef9a0d",
+      "created_at": "2025-03-31T19:35:42.036648",
+      "last_used": "2025-03-31T19:35:42.038920",
+      "usage_count": 2,
+      "metadata": {
+        "text": "Soy V.I.O.. def sumar_dos_numeros(a, b):\n  \"\"\"\n  Suma dos n\u00fameros y devuelve el resultado.\n\n  Args:\n...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_1590471534010358785.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_1590471534010358785.mp3",
+      "hash": "d64232f6629b84b2b9a73fa12e6dae4f",
+      "created_at": "2025-03-31T19:36:42.893655",
+      "last_used": "2025-03-31T19:36:42.893655",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy V.I.O.. Lo siento, el agente especializado no est\u00e1 disponible en este momento.",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_2294988430335836163.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_2294988430335836163.mp3",
+      "hash": "a47366a5b735ad78af39aa351fc04c21",
+      "created_at": "2025-03-31T19:41:01.853213",
+      "last_used": "2025-03-31T19:41:01.858219",
+      "usage_count": 2,
+      "metadata": {
+        "text": "Soy V.I.O.. \"\"\"\nEste script demuestra algunas funcionalidades b\u00e1sicas de Python.\n\"\"\"\n\ndef ejemplo_ti...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_1522443165058333698.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_1522443165058333698.mp3",
+      "hash": "6279d4fea8f1b442188ae538e75340ea",
+      "created_at": "2025-03-31T19:46:37.144020",
+      "last_used": "2025-03-31T19:46:37.144020",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy V.I.O.. def factorial(n):\n  \"\"\"Calcula el factorial de un n\u00famero entero no negativo.\"\"\"\n  if n =...",
+        "voice_id": "es-male-1",
+        "lang_code": "es"
+      }
+    },
+    "tts_es_772802985487699971.mp3": {
+      "path": "C:\\Users\\Angel\\Desktop\\probando22\\ia-proyect\\tts\\temp\\tts_es_772802985487699971.mp3",
+      "hash": "f7976ebf2416079128e2a870f12babb2",
+      "created_at": "2025-03-31T20:25:43.783812",
+      "last_used": "2025-03-31T20:25:43.783812",
+      "usage_count": 1,
+      "metadata": {
+        "text": "Soy V.I.O.. Entendido. lklk",
         "voice_id": "es-male-1",
         "lang_code": "es"
       }

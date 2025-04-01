@@ -7,11 +7,52 @@ This module implements a specialized agent for task planning and decomposition.
 import logging
 import asyncio
 from typing import Dict, List, Optional, Any
+import uuid
+from datetime import datetime
 
 from .base import BaseAgent, AgentResponse
 from .planning.task import Task, TaskStatus
 from .planning.execution_plan import ExecutionPlan, PlanStatus
 from .planning.algorithms import PlanningAlgorithms
+
+
+class PlanStep:
+    """
+    Represents a step in an execution plan.
+    
+    This class is used to track individual steps in a plan, including their
+    status, dependencies, and results.
+    """
+    
+    def __init__(
+        self,
+        task_id: str,
+        action: str,
+        capability_requirements: List[str] = None,
+        dependencies: List[str] = None
+    ):
+        """
+        Initialize a new plan step.
+        
+        Args:
+            task_id: Unique identifier for the task
+            action: Description of the action to be performed
+            capability_requirements: Capabilities required for this step
+            dependencies: IDs of other tasks this step depends on
+        """
+        self.task_id = task_id
+        self.action = action
+        self.capability_requirements = capability_requirements or []
+        self.dependencies = dependencies or []
+        
+        # Execution state
+        self.status = TaskStatus.PENDING
+        self.result = None
+        self.error = None
+        
+        # Timing information
+        self.created_at = datetime.now().isoformat()
+        self.completed_at = None
 
 
 class PlannerAgent(BaseAgent):
@@ -124,91 +165,107 @@ class PlannerAgent(BaseAgent):
             
     async def _handle_task_update(self, query: str, context: Dict) -> AgentResponse:
         """
-        Handle a task update request from the OrchestratorAgent.
+        Handle a task update notification from another agent.
+        
+        The query should be in the format: update_task:<task_id>:<status>
         
         Args:
-            query: Update message in format "update_task:task_id:status"
-            context: Context containing update details
+            query: The task update query
+            context: Request context with optional result data
             
         Returns:
-            AgentResponse acknowledging the update
+            AgentResponse with the result
         """
-        # Extract task info from query
-        parts = query.split(":")
-        if len(parts) < 3:
-            raise ValueError(f"Invalid task update format: {query}")
-            
+        # Parse task update query
+        parts = query.split(":", 2)
+        if len(parts) < 3 or parts[0] != "update_task":
+            return AgentResponse(
+                content="Error: Invalid task update format. Expected 'update_task:<task_id>:<status>'",
+                status="error",
+                metadata={"error": "invalid_format"}
+            )
+        
         task_id = parts[1]
-        status_str = parts[2]
-        
-        # Get plan info from context
-        plan_id = context.get("plan_id")
-        if not plan_id:
-            raise ValueError("Missing plan_id in update context")
+        try:
+            status = TaskStatus(parts[2])
+        except ValueError:
+            return AgentResponse(
+                content=f"Error: Invalid task status '{parts[2]}'. Expected one of {[s.value for s in TaskStatus]}",
+                status="error",
+                metadata={"error": "invalid_status"}
+            )
             
-        # Map string status to TaskStatus enum
-        status_map = {
-            "PENDING": TaskStatus.PENDING,
-            "IN_PROGRESS": TaskStatus.IN_PROGRESS,
-            "COMPLETED": TaskStatus.COMPLETED,
-            "FAILED": TaskStatus.FAILED,
-            "BLOCKED": TaskStatus.BLOCKED
-        }
+        # Get result data and error if provided
+        result = context.get("result", None)
+        error = context.get("error", None)
         
-        status = status_map.get(status_str)
-        if not status:
-            raise ValueError(f"Invalid task status: {status_str}")
-            
-        # Get additional info from context
-        result = context.get("result")
-        error = context.get("error")
-        agent_id = context.get("assigned_agent")
+        # Find plan containing this task
+        target_plan_id = None
+        target_plan = None
         
-        # Update the task
-        updated_plan = await self.update_plan(plan_id, task_id, status, result, error)
+        # Manejar caso donde el plan_id viene directamente en el contexto
+        if context and "plan_id" in context:
+            plan_id = context["plan_id"]
+            target_plan = self.plans.get(plan_id)
+            if target_plan:
+                target_plan_id = plan_id
         
-        if not updated_plan:
-            raise ValueError(f"Failed to update task {task_id} in plan {plan_id}")
-            
-        # Get the updated task
-        task = updated_plan.tasks.get(task_id)
-        if not task:
-            raise ValueError(f"Task {task_id} not found in plan {plan_id}")
-            
-        # Log detailed update
-        if status == TaskStatus.IN_PROGRESS and agent_id:
-            self.logger.info(f"Task {task_id} started by agent {agent_id}")
-            response_content = f"Task {task_id} marked as in progress with agent {agent_id}"
-        elif status == TaskStatus.COMPLETED:
-            self.logger.info(f"Task {task_id} completed with result: {result[:50]}...")
-            response_content = f"Task {task_id} marked as completed"
-        elif status == TaskStatus.FAILED:
-            self.logger.warning(f"Task {task_id} failed with error: {error}")
-            response_content = f"Task {task_id} marked as failed: {error}"
-        else:
-            self.logger.info(f"Task {task_id} status updated to {status}")
-            response_content = f"Task {task_id} status updated to {status}"
+        # Si no se encontró el plan, buscar en todos los planes
+        if not target_plan:
+            for plan_id, plan in self.plans.items():
+                for step in plan.steps:
+                    if step.task_id == task_id:
+                        target_plan_id = plan_id
+                        target_plan = plan
+                        break
+                if target_plan_id:
+                    break
         
-        # Check if the plan is completed
-        plan_status = updated_plan.status
-        if plan_status == PlanStatus.COMPLETED:
-            self.logger.info(f"Plan {plan_id} is now complete")
-            response_content += f". Plan {plan_id} is now complete."
-        elif plan_status == PlanStatus.FAILED:
-            self.logger.warning(f"Plan {plan_id} has failed")
-            response_content += f". Plan {plan_id} has failed."
+        # Si todavía no se encontró el plan, crear uno temporal para esta tarea
+        if not target_plan_id:
+            self.logger.warning(f"No plan found for task {task_id}. Creating a placeholder entry.")
             
-        # Return acknowledgment
-        return AgentResponse(
-            content=response_content,
-            status="success",
-            metadata={
-                "plan_id": plan_id,
-                "task_id": task_id,
-                "task_status": status.value,
-                "plan_status": plan_status.value
-            }
-        )
+            # Crear un plan provisional para la tarea
+            new_plan_id = str(uuid.uuid4())
+            placeholder_plan = ExecutionPlan(
+                plan_id=new_plan_id,
+                original_request=f"Placeholder for task {task_id}",
+                steps=[
+                    PlanStep(
+                        task_id=task_id,
+                        action=f"Unknown action for task {task_id}",
+                        capability_requirements=["unknown"],
+                        dependencies=[]
+                    )
+                ]
+            )
+            self.plans[new_plan_id] = placeholder_plan
+            target_plan_id = new_plan_id
+            target_plan = placeholder_plan
+            
+        # Update the task status
+        try:
+            success = await self.update_plan(target_plan_id, task_id, status, result, error)
+            if success:
+                self.logger.info(f"Updated task {task_id} in plan {target_plan_id} to {status.value}")
+                return AgentResponse(
+                    content=f"Task {task_id} in plan {target_plan_id} updated to {status.value}",
+                    status="success",
+                    metadata={"task_id": task_id, "plan_id": target_plan_id, "status": status.value}
+                )
+            else:
+                return AgentResponse(
+                    content=f"Error: Failed to update task {task_id} in plan {target_plan_id}",
+                    status="error", 
+                    metadata={"error": "update_failed", "task_id": task_id, "plan_id": target_plan_id}
+                )
+        except Exception as e:
+            self.logger.error(f"Error handling task update: {str(e)}")
+            return AgentResponse(
+                content=f"Error updating task: {str(e)}",
+                status="error",
+                metadata={"error": "exception", "message": str(e)}
+            )
     
     async def get_plan(self, plan_id: str) -> Optional[ExecutionPlan]:
         """
@@ -228,35 +285,124 @@ class PlannerAgent(BaseAgent):
                          result: Any = None,
                          error: str = None) -> Optional[ExecutionPlan]:
         """
-        Update the status of a task in a plan.
+        Update a task status within a plan.
         
         Args:
-            plan_id: ID of the plan containing the task
+            plan_id: ID of the plan
             task_id: ID of the task to update
             status: New status for the task
-            result: Result data (if task completed)
-            error: Error message (if task failed)
+            result: Optional result if the task was completed
+            error: Optional error message if the task failed
             
         Returns:
-            Updated ExecutionPlan if found, None otherwise
+            Updated plan or None if not found
         """
-        plan = self.plans.get(plan_id)
-        if not plan:
-            self.logger.warning(f"Attempt to update nonexistent plan: {plan_id}")
-            return None
-        
-        # Update the task status
         try:
-            plan.update_task_status(task_id, status, result, error)
+            # Verify the plan exists
+            if plan_id not in self.plans:
+                self.logger.warning(f"Plan {plan_id} not found. Using placeholder.")
+                # Crear un plan provisional si no existe
+                placeholder_plan = ExecutionPlan(
+                    plan_id=plan_id,
+                    original_request=f"Placeholder for task {task_id}",
+                    steps=[
+                        PlanStep(
+                            task_id=task_id,
+                            action=f"Unknown action for task {task_id}",
+                            capability_requirements=["unknown"],
+                            dependencies=[]
+                        )
+                    ]
+                )
+                self.plans[plan_id] = placeholder_plan
             
-            # If plan is completed or failed, move it to history
-            if plan.status in [PlanStatus.COMPLETED, PlanStatus.FAILED]:
-                self._archive_plan(plan_id)
+            plan = self.plans[plan_id]
+            
+            # Find the task in the plan
+            task_found = False
+            for step in plan.steps:
+                if step.task_id == task_id:
+                    # Verify valid state transition (with tolerance for repeated states)
+                    if step.status != status:
+                        self.logger.info(f"Updating task {task_id} status from {step.status.value} to {status.value}")
+                    else:
+                        self.logger.info(f"Task {task_id} status already set to {status.value}, no change needed")
+                    
+                    # Update status
+                    step.status = status
+                    
+                    # Update result/error if provided
+                    if status == TaskStatus.COMPLETED and result is not None:
+                        step.result = result
+                        step.completed_at = datetime.now().isoformat()
+                    elif status == TaskStatus.FAILED and error is not None:
+                        step.error = error
+                        step.completed_at = datetime.now().isoformat()
+                    
+                    task_found = True
+                    break
+            
+            # Create the task if not found
+            if not task_found:
+                self.logger.warning(f"Task {task_id} not found in plan {plan_id}. Adding as a new step.")
+                new_step = PlanStep(
+                    task_id=task_id,
+                    action=f"Auto-added task {task_id}",
+                    capability_requirements=["unknown"],
+                    dependencies=[]
+                )
+                new_step.status = status
+                
+                if status == TaskStatus.COMPLETED and result is not None:
+                    new_step.result = result
+                    new_step.completed_at = datetime.now().isoformat()
+                elif status == TaskStatus.FAILED and error is not None:
+                    new_step.error = error
+                    new_step.completed_at = datetime.now().isoformat()
+                
+                plan.steps.append(new_step)
+            
+            # Check if the entire plan should be updated
+            self._update_plan_status(plan)
             
             return plan
         except Exception as e:
-            self.logger.error(f"Error updating plan {plan_id}: {str(e)}")
+            self.logger.error(f"Error updating plan {plan_id}, task {task_id}: {str(e)}")
             return None
+            
+    def _update_plan_status(self, plan: ExecutionPlan) -> None:
+        """
+        Update a plan's status based on its tasks.
+        
+        Args:
+            plan: The plan to update
+        """
+        # No tasks, can't determine status
+        if not plan.steps:
+            plan.status = PlanStatus.PENDING
+            return
+            
+        # Count tasks by status
+        pending = sum(1 for step in plan.steps if step.status == TaskStatus.PENDING)
+        in_progress = sum(1 for step in plan.steps if step.status == TaskStatus.IN_PROGRESS)
+        completed = sum(1 for step in plan.steps if step.status == TaskStatus.COMPLETED)
+        failed = sum(1 for step in plan.steps if step.status == TaskStatus.FAILED)
+        blocked = sum(1 for step in plan.steps if step.status == TaskStatus.BLOCKED)
+        
+        total = len(plan.steps)
+        
+        # Determine plan status
+        if failed > 0:
+            plan.status = PlanStatus.FAILED
+        elif total == completed:
+            plan.status = PlanStatus.COMPLETED
+            plan.completed_at = datetime.now().isoformat()
+        elif in_progress > 0:
+            plan.status = PlanStatus.IN_PROGRESS
+        elif blocked > 0:
+            plan.status = PlanStatus.BLOCKED
+        else:
+            plan.status = PlanStatus.PENDING
     
     def _archive_plan(self, plan_id: str) -> None:
         """

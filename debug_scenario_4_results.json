@@ -1,0 +1,16 @@
+{
+  "planner_plan_id": "1cb7e480-13f5-405d-b019-6b0929d249a9",
+  "orchestrator_plan_id": null,
+  "task_ids": [],
+  "messages": [],
+  "errors": [],
+  "orchestrator_response": "Task completed: Ejecuta el plan 1cb7e480-13f5-405d-b019-6b0929d249a9 para obtener la fecha y crear c\u00f3digo Python\n\nWorkflow executed with 1 steps:\n- Step 1: def planificar_tarea(tarea: str, tipos_agentes: list) -> list:\n    \"\"\"\n    Planifica una tarea dividi\u00e9ndola en pasos secuenciales y asign\u00e1ndolos a agentes.\n\n    Args:\n        tarea: La tarea a planifi...... (completed, agent: code)\n\nFINAL RESULTS:\n\ndef planificar_tarea(tarea: str, tipos_agentes: list) -> list:\n    \"\"\"\n    Planifica una tarea dividi\u00e9ndola en pasos secuenciales y asign\u00e1ndolos a agentes.\n\n    Args:\n        tarea: La tarea a planificar.\n        tipos_agentes: Lista de tipos de agentes disponibles.\n\n    Returns:\n        Una lista de tuplas, donde cada tupla contiene un paso de la tarea y el tipo de agente asignado.\n    \"\"\"\n\n    # Ejemplo simplificado: divide la tarea en pasos iguales y asigna agentes c\u00edclicamente.\n    pasos = tarea.split()  # Divide la tarea en palabras (pasos b\u00e1sicos).\n    planificacion = []\n    num_agentes = len(tipos_agentes)\n\n    for i, paso in enumerate(pasos):\n        agente_asignado = tipos_agentes[i % num_agentes]  # Asignaci\u00f3n c\u00edclica.\n        planificacion.append((paso, agente_asignado))\n\n    return planificacion",
+  "orchestrator_metadata": {
+    "workflow_id": "1bd5b998-1a1c-49b6-8aab-39968bf17b7b",
+    "steps_count": 1,
+    "orchestrator_id": "orchestrator"
+  },
+  "available_plans": [
+    "1cb7e480-13f5-405d-b019-6b0929d249a9"
+  ]
+}

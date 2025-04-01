@@ -301,6 +301,99 @@ async def run_example_queries(main_assistant):
     
     return True
 
+async def test_profile_memory(vio, test_profile=None):
+    """
+    Prueba la función de perfil de usuario en memoria.
+    
+    Args:
+        vio: Instancia de MainAssistant
+        test_profile: Perfil de prueba (opcional)
+    
+    Returns:
+        True si la prueba es exitosa
+    """
+    print("Probando funcionalidad de perfil de usuario en memoria")
+    
+    # Perfil básico de prueba si no se proporciona uno
+    if not test_profile:
+        test_profile = """
+Perfil de Usuario: Ana García
+Información Personal: Ingeniera de software de 32 años, residente en Madrid.
+Intereses: Inteligencia artificial, aprendizaje automático, desarrollo web, montañismo.
+Personalidad: Analítica, metódica, orientada a soluciones, curiosa.
+Habilidades: Python, JavaScript, Docker, CloudOps.
+Preferencias: Prefiere trabajar con Linux, le gusta la música indie y disfruta de hacer senderismo.
+"""
+    
+    # Si vio tiene un memory_agent registrado, utilizarlo directamente
+    memory_agent = None
+    for agent_id, agent_info in vio.specialized_agents.items():
+        if "memory" in agent_id:
+            # Obtener el agente a través del comunicador
+            from agents.agent_communication import communicator
+            memory_agent = communicator.get_agent(agent_id)
+            break
+    
+    if not memory_agent:
+        print("Error: No se encontró un agente de memoria para probar")
+        return False
+    
+    try:
+        # Crear perfil usando el método especializado
+        if hasattr(memory_agent, "process_profile_data"):
+            print("Procesando perfil con método especializado...")
+            result = await memory_agent.process_profile_data(
+                test_profile,
+                {"source": "test", "test_profile": True}
+            )
+            print(f"Perfil procesado: {len(result.get('sections', {})) if isinstance(result, dict) else 'error'} secciones creadas")
+        else:
+            # Crear memoria directamente
+            print("Añadiendo perfil directamente...")
+            profile_id = memory_agent.memory_manager.add_memory(
+                content=test_profile,
+                memory_type="user_profile",
+                importance=0.9,
+                metadata={"source": "test", "test_profile": True}
+            )
+            print(f"Perfil creado con ID: {profile_id}")
+            result = {"main_profile": profile_id}
+        
+        # Probar la búsqueda con términos del perfil
+        test_queries = [
+            "¿Quién es el usuario?",
+            "¿Qué le interesa al usuario?",
+            "¿Qué habilidades tiene?",
+            "¿Qué prefiere el usuario?"
+        ]
+        
+        print("\nProbando búsquedas sobre el perfil:")
+        for query in test_queries:
+            # Buscar en memoria
+            results = memory_agent.memory_manager.search_memories(
+                query=query, 
+                limit=2, 
+                metadata={"test_profile": True}
+            )
+            
+            # Mostrar resultados
+            print(f"\nConsulta: {query}")
+            if results:
+                for i, memory in enumerate(results):
+                    print(f"{i+1}. Relevancia: {memory.importance:.2f}")
+                    print(f"   Contenido: {str(memory.content)[:100]}...")
+            else:
+                print("   No se encontraron resultados")
+        
+        print("\nPrueba de perfil completada")
+        return True
+        
+    except Exception as e:
+        print(f"Error en prueba de perfil: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return False
+
 async def main():
     """Función principal que ejecuta todo el ejemplo."""
     logger.info("Iniciando demo de integración Multi-Agente")

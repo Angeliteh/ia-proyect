@@ -160,69 +160,40 @@ class BaseAgent(ABC):
         """Check if this agent has memory capabilities enabled."""
         return self.memory_manager is not None
         
-    def remember(self, content, importance=0.5, memory_type="general", metadata=None, generate_embedding=True):
+    def remember(self, content: Any, memory_type: str = "general", importance: float = 0.5, metadata: Optional[Dict] = None, generate_embedding: bool = True) -> Optional[str]:
         """
-        Store information in the agent's memory.
+        Store a memory for later retrieval.
         
         Args:
             content: The content to remember
-            importance: How important is this memory (0.0 to 1.0)
-            memory_type: Type of memory (general, episodic, etc.)
-            metadata: Additional metadata about the memory
-            generate_embedding: Whether to generate an embedding for semantic search
+            memory_type: Type of memory (e.g., "general", "fact", "conversation")
+            importance: How important this memory is (0.0 to 1.0)
+            metadata: Additional metadata for the memory
+            generate_embedding: Whether to generate an embedding for this memory (deprecated)
             
         Returns:
-            The memory_id if successful, None otherwise
+            ID of the created memory if successful, None otherwise
         """
         if not self.has_memory():
-            self.logger.debug(f"Cannot remember content - no memory manager available")
+            self.logger.debug("Cannot remember - no memory manager available")
             return None
-            
-        # Add agent info to metadata
-        meta = metadata or {}
-        meta.update({
-            "agent_id": self.agent_id,
-            "source": f"agent:{self.agent_id}"
-        })
+        
+        # Create metadata if not provided
+        metadata = metadata or {}
+        
+        # Always tag with this agent's ID
+        metadata["agent_id"] = self.agent_id
         
         try:
-            # Check if memory manager has direct MCP support for vector generation
-            if hasattr(self.memory_manager, 'memory_system') and hasattr(self.memory_manager.memory_system, 'mcp_client'):
-                from mcp.core import MCPMessage, MCPAction, MCPResource
-                
-                # Use direct MCP support for memory creation with embedding
-                create_msg = MCPMessage(
-                    action=MCPAction.CREATE,
-                    resource_type=MCPResource.MEMORY,
-                    resource_path="/",
-                    data={
-                        "content": content,
-                        "memory_type": memory_type,
-                        "importance": importance,
-                        "metadata": meta,
-                        "generate_embedding": generate_embedding
-                    }
-                )
-                
-                try:
-                    response = self.memory_manager.memory_system.mcp_client.send_message(create_msg)
-                    if response.success:
-                        memory_id = response.data.get('id')
-                        self.logger.debug(f"Memory stored via MCP with embedding={generate_embedding}, id={memory_id}")
-                        return memory_id
-                    else:
-                        self.logger.warning(f"MCP memory creation failed: {response.error}")
-                except Exception as e:
-                    self.logger.warning(f"Error in MCP memory creation, falling back: {e}")
-            
-            # Fallback to standard memory manager
+            # Note: generate_embedding parameter is no longer used, the MemoryManager handles
+            # embedding generation internally based on its configuration
             memory_id = self.memory_manager.add_memory(
                 content=content,
                 memory_type=memory_type,
                 importance=importance,
-                metadata=meta,
-                generate_embedding=generate_embedding
+                metadata=metadata
             )
+            
             self.logger.debug(f"Stored memory: {memory_id}")
             return memory_id
         except Exception as e:

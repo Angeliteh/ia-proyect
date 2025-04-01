@@ -1552,7 +1552,7 @@ class OrchestratorAgent(BaseAgent):
                 
                 # Enviar la solicitud de planificación al agente planificador
                 planning_response = await self._send_agent_request(
-                    self.agent_id, 
+                    self.agent_id,
                     code_planner_id,
                     planning_prompt,
                     {"original_task": query, **(context or {})}
@@ -1893,53 +1893,91 @@ class OrchestratorAgent(BaseAgent):
     
     async def _select_agent_for_capabilities(self, required_capabilities: List[str], description: str, context: Optional[Dict] = None) -> Optional[str]:
         """
-        Selecciona un agente basado en las capacidades requeridas para una tarea.
+        Select the most appropriate agent based on required capabilities.
         
         Args:
-            required_capabilities: Lista de capacidades requeridas
-            description: Descripción de la tarea
-            context: Contexto opcional
+            required_capabilities: List of required capabilities
+            description: Description of the task
+            context: Additional context
             
         Returns:
-            ID del agente seleccionado, o None si no se encuentra ninguno adecuado
+            ID of the selected agent or None if no suitable agent found
         """
         self.logger.info(f"Seleccionando agente para capacidades {required_capabilities}")
         
-        best_agent_id = None
-        best_match_score = -1
+        # Verificar primero si la descripción menciona código o programación
+        description_lower = description.lower()
         
-        for agent_id, agent_info in self.available_agents.items():
-            # Skip agents that are not idle
-            if agent_info.get("status") != "idle":
-                continue
-            
-            # Calculate capability match score
-            agent_capabilities = set(agent_info.get("capabilities", []))
-            req_capabilities = set(required_capabilities)
-            
-            if not req_capabilities:
-                # If no specific capabilities required, any agent can do it
-                match_score = 1
-            else:
-                # Calculate match as proportion of required capabilities the agent has
-                if not agent_capabilities:
-                    match_score = 0
-                else:
-                    intersection = req_capabilities.intersection(agent_capabilities)
-                    match_score = len(intersection) / len(req_capabilities) if req_capabilities else 0
-            
-            # Consider agent's recent usage (prefer less recently used agents)
-            last_used = agent_info.get("last_used")
-            recency_bonus = 0.1 if last_used is None else 0
-            
-            # Final score
-            score = match_score + recency_bonus
-            
-            if score > best_match_score:
-                best_match_score = score
-                best_agent_id = agent_id
+        # Detectar si es una tarea de programación
+        programming_indicators = [
+            "python", "javascript", "java", "código", "code", "script", "programa", 
+            "function", "función", "class", "clase", "programación", "programming",
+            "algorithm", "algoritmo", "implementation", "implementación", "development",
+            "desarrollo", "software", "app", "aplicación", "module", "módulo"
+        ]
         
-        return best_agent_id if best_match_score > 0 else None
+        # Si es claramente una tarea de programación, priorizar el CodeAgent
+        is_programming_task = any(indicator in description_lower for indicator in programming_indicators)
+        
+        if is_programming_task:
+            self.logger.info("Detectada tarea de programación, buscando agente de código")
+            
+            # Buscar agente con capacidades de código
+            for agent_id, info in self.available_agents.items():
+                if any(cap in info["capabilities"] for cap in ["code", "code_generation", "programming"]):
+                    self.logger.info(f"Seleccionado agente de código: {agent_id}")
+                    return agent_id
+        
+        # Para tareas generales, verificar las capacidades específicas requeridas
+        matches = {}
+        for agent_id, info in self.available_agents.items():
+            agent_capabilities = info["capabilities"]
+            
+            # Contar coincidencias exactas de capacidades
+            exact_matches = sum(1 for cap in required_capabilities if cap in agent_capabilities)
+            
+            # Si hay alguna coincidencia, añadir a los candidatos
+            if exact_matches > 0:
+                matches[agent_id] = exact_matches
+        
+        if matches:
+            # Seleccionar el agente con más coincidencias
+            best_agent_id = max(matches.items(), key=lambda x: x[1])[0]
+            self.logger.info(f"Agente con más coincidencias de capacidades: {best_agent_id} ({matches[best_agent_id]} coincidencias)")
+            return best_agent_id
+        
+        # Si no hay coincidencias exactas, buscar coincidencias parciales
+        for agent_id, info in self.available_agents.items():
+            agent_capabilities = info["capabilities"]
+            
+            # Verificar si alguna de las capacidades del agente contiene alguna de las requeridas
+            partial_matches = sum(1 for rcap in required_capabilities 
+                                for acap in agent_capabilities 
+                                if rcap in acap or acap in rcap)
+            
+            if partial_matches > 0:
+                matches[agent_id] = partial_matches
+        
+        if matches:
+            # Seleccionar el agente con más coincidencias parciales
+            best_agent_id = max(matches.items(), key=lambda x: x[1])[0]
+            self.logger.info(f"Agente con coincidencias parciales: {best_agent_id} ({matches[best_agent_id]} coincidencias)")
+            return best_agent_id
+        
+        # Si aún no hay coincidencias, buscar un agente general o de propósito múltiple
+        for agent_id, info in self.available_agents.items():
+            if "general" in info["capabilities"] or "memory" in info["capabilities"]:
+                self.logger.info(f"Usando agente general: {agent_id}")
+                return agent_id
+        
+        # Si todo lo demás falla, devolver el primer agente disponible
+        if self.available_agents:
+            fallback_id = next(iter(self.available_agents.keys()))
+            self.logger.warning(f"No se encontró agente ideal para {required_capabilities}, usando {fallback_id} como fallback")
+            return fallback_id
+        
+        self.logger.error(f"No se encontró ningún agente para capacidades {required_capabilities}")
+        return None
     
     async def _update_planner_task_status(self, planner_id: str, plan_id: str, task_id: str, status: str, result: Optional[str] = None, error: Optional[str] = None, agent_id: Optional[str] = None) -> None:
         """

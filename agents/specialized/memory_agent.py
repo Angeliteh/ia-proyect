@@ -13,9 +13,11 @@ import json
 from typing import Dict, List, Any, Optional, Union
 from datetime import datetime
 import os
+import re
 
 from ..base import BaseAgent, AgentResponse
 from models.core.model_manager import ModelManager
+from mcp.core import MCPMessage, MCPAction, MCPResource
 
 class MemoryAgent(BaseAgent):
     """
@@ -1104,17 +1106,43 @@ class MemoryAgent(BaseAgent):
         """
         self.logger.info(f"Realizando búsqueda por palabras clave para '{query}'")
         
+        # Extraer palabras clave de la consulta
+        # Eliminar palabras comunes como "qué", "sabes", "sobre", etc.
+        stopwords = ["qué", "que", "sabes", "sobre", "los", "las", "el", "la", "del", "de", "un", "una", "unos", "unas", "conoces", "me", "puedes", "decir", "information", "información", "acerca"]
+        
+        # Normalizar la consulta
+        normalized_query = query.lower()
+        # Reemplazar signos de interrogación, puntos y comas
+        normalized_query = re.sub(r'[¿?.,;:!¡]', '', normalized_query)
+        
+        # Dividir en palabras y eliminar stopwords
+        words = normalized_query.split()
+        keywords = [word for word in words if word not in stopwords and len(word) > 2]
+        
+        # Incluir variantes singular/plural básicas
+        expanded_keywords = set(keywords)
+        for word in keywords:
+            # Agregar singular si es posible plural
+            if word.endswith('s'):
+                expanded_keywords.add(word[:-1])  # quitar la 's'
+            # Agregar plural si es posible singular
+            else:
+                expanded_keywords.add(word + 's')
+                
+        self.logger.info(f"Palabras clave extraídas: {list(expanded_keywords)}")
+        
         # Si tenemos acceso al cliente MCP
         if self.memory_system and hasattr(self.memory_system, 'mcp_client'):
             from mcp.core import MCPMessage, MCPAction
             
-            # Crear mensaje MCP para búsqueda por palabras clave
+            # Primero intentar búsqueda MCP con tipo "keyword"
             search_msg = MCPMessage(
                 action=MCPAction.SEARCH,
                 resource_type="keyword",
                 resource_path="/",
                 data={
                     "query": query,
+                    "keywords": list(expanded_keywords),  # Enviar las palabras clave expandidas
                     "limit": limit,
                     "memory_type": memory_type
                 }
@@ -1124,10 +1152,73 @@ class MemoryAgent(BaseAgent):
                 response = await self.memory_system.mcp_client.send_message_async(search_msg)
                 if response and response.success:
                     results = response.data.get('results', [])
-                    self.logger.info(f"Búsqueda por palabras clave encontró {len(results)} resultados")
-                    return results
+                    self.logger.info(f"Búsqueda MCP por palabras clave encontró {len(results)} resultados")
+                    if results:
+                        return results
                 else:
-                    self.logger.warning(f"Error en búsqueda por palabras clave: {getattr(response, 'error', 'Desconocido')}")
+                    self.logger.warning(f"Error en búsqueda MCP por palabras clave: {getattr(response, 'error', 'Desconocido')}")
+                
+                # Si la búsqueda MCP no encontró resultados, intentar búsqueda manual
+                # Obtener todas las memorias y filtrar
+                self.logger.info("Intentando búsqueda manual por palabras clave")
+                
+                list_msg = MCPMessage(
+                    action=MCPAction.LIST,
+                    resource_type=MCPResource.MEMORY,
+                    resource_path="/",
+                    data={
+                        "memory_type": memory_type,
+                        "limit": 100  # Obtener un número razonable de memorias
+                    }
+                )
+                
+                list_response = await self.memory_system.mcp_client.send_message_async(list_msg)
+                
+                if list_response and list_response.success:
+                    all_memories = list_response.data.get('items', [])
+                    self.logger.info(f"Obtenidas {len(all_memories)} memorias para búsqueda manual")
+                    
+                    # Filtrar manualmente por palabras clave
+                    matches = []
+                    for memory in all_memories:
+                        content = memory.get('content', '').lower()
+                        metadata = memory.get('metadata', {})
+                        
+                        # También buscar en metadatos si están disponibles
+                        metadata_text = ''
+                        if isinstance(metadata, dict):
+                            # Convertir metadatos a texto para búsqueda
+                            for key, value in metadata.items():
+                                if isinstance(value, str):
+                                    metadata_text += ' ' + value.lower()
+                                elif isinstance(value, list) and all(isinstance(item, str) for item in value):
+                                    metadata_text += ' ' + ' '.join(value).lower()
+                        
+                        # Combinar contenido y metadatos para búsqueda
+                        searchable_text = content + ' ' + metadata_text
+                        
+                        # Contar coincidencias de palabras clave
+                        match_count = 0
+                        matches_found = []
+                        for keyword in expanded_keywords:
+                            if keyword in searchable_text:
+                                match_count += 1
+                                matches_found.append(keyword)
+                        
+                        if match_count > 0:
+                            # Agregar puntuación a los resultados
+                            memory['match_score'] = match_count
+                            memory['matched_keywords'] = matches_found
+                            matches.append(memory)
+                    
+                    # Ordenar por número de coincidencias
+                    matches.sort(key=lambda x: x.get('match_score', 0), reverse=True)
+                    
+                    if matches:
+                        result_subset = matches[:limit]
+                        self.logger.info(f"Búsqueda manual encontró {len(matches)} coincidencias, devolviendo las {len(result_subset)} mejores")
+                        return result_subset
+                
             except Exception as e:
                 self.logger.error(f"Error en búsqueda por palabras clave: {str(e)}")
                 
@@ -1135,7 +1226,164 @@ class MemoryAgent(BaseAgent):
         try:
             # Aquí usamos un threshold de 0 para indicar búsqueda exacta por palabras clave
             memories = self.recall(query=query, limit=limit, threshold=0.0, memory_type=memory_type)
-            return [memory.to_dict() for memory in memories] if memories else []
+            if memories:
+                return [memory.to_dict() for memory in memories]
+            else:
+                self.logger.warning("Fallback básico tampoco encontró resultados")
+                return []
         except Exception as e:
             self.logger.error(f"Error en búsqueda por palabras clave con fallback: {str(e)}")
             return [] 
+
+    async def process_profile_data(self, profile_content, metadata=None):
+        """
+        Procesa un perfil de usuario estructurándolo en varias memorias relacionadas
+        para facilitar búsquedas semánticas más precisas.
+        
+        Args:
+            profile_content: Texto completo del perfil de usuario
+            metadata: Metadatos adicionales para las memorias
+            
+        Returns:
+            Dict con IDs de memorias creadas
+        """
+        self.logger.info("Procesando datos de perfil de usuario para almacenamiento semántico")
+        
+        # Asegurar que tenemos metadatos básicos
+        meta = metadata or {}
+        meta.update({
+            "category": "user_profile",
+            "processor": "memory_agent_profile_processor"
+        })
+        
+        # Dividir el perfil en secciones semánticas
+        sections = self._extract_profile_sections(profile_content)
+        
+        # IDs de memorias creadas
+        memory_ids = {
+            "main_profile": None,
+            "sections": {}
+        }
+        
+        try:
+            # 1. Crear memoria principal del perfil completo con alta importancia
+            memory_ids["main_profile"] = self.memory_manager.add_memory(
+                content=profile_content,
+                memory_type="user_profile",
+                importance=0.95,
+                metadata={**meta, "section": "complete_profile"}
+            )
+            
+            # 2. Crear memorias separadas para cada sección con relaciones semánticas
+            for section_name, section_content in sections.items():
+                if not section_content.strip():
+                    continue
+                    
+                # Crear memoria para esta sección
+                section_id = self.memory_manager.add_memory(
+                    content=section_content,
+                    memory_type="user_profile_section",
+                    importance=0.85,
+                    metadata={
+                        **meta, 
+                        "section": section_name,
+                        "parent_profile": memory_ids["main_profile"]
+                    }
+                )
+                
+                memory_ids["sections"][section_name] = section_id
+                
+                # Enlazar esta sección con el perfil principal
+                try:
+                    if hasattr(self.memory_manager, "link_memories"):
+                        self.memory_manager.link_memories(
+                            memory_ids["main_profile"],
+                            section_id,
+                            "has_section"
+                        )
+                except Exception as e:
+                    self.logger.warning(f"No se pudo enlazar memoria de sección: {e}")
+                    
+            self.logger.info(f"Perfil procesado exitosamente: {len(memory_ids['sections'])} secciones creadas")
+            return memory_ids
+            
+        except Exception as e:
+            self.logger.error(f"Error procesando perfil: {e}")
+            return {"error": str(e), "main_profile": memory_ids["main_profile"]}
+
+    def _extract_profile_sections(self, profile_text):
+        """
+        Extrae secciones semánticas de un texto de perfil.
+        
+        Args:
+            profile_text: Texto completo del perfil
+        
+        Returns:
+            Dict con secciones extraídas
+        """
+        sections = {
+            "personal_info": "",
+            "interests": "",
+            "personality": "",
+            "skills": "",
+            "preferences": ""
+        }
+        
+        # Buscar secciones usando palabras clave
+        section_keywords = {
+            "personal_info": ["nombre", "edad", "persona", "quién es", "información personal"],
+            "interests": ["interés", "intereses", "pasión", "pasiones", "afición", "le gusta", "disfruta"],
+            "personality": ["personalidad", "carácter", "actitud", "temperamento", "rasgos", "manera de ser"],
+            "skills": ["habilidad", "destreza", "capacidad", "competencia", "sabe", "especialidad"],
+            "preferences": ["preferencia", "prefiere", "le gusta", "no le gusta", "odia", "ama"]
+        }
+        
+        # Dividir en párrafos
+        paragraphs = profile_text.split('\n\n')
+        
+        for paragraph in paragraphs:
+            if not paragraph.strip():
+                continue
+                
+            # Determinar a qué sección pertenece este párrafo
+            paragraph_lower = paragraph.lower()
+            
+            # Buscar títulos explícitos
+            found_section = False
+            for title in ["personal", "intereses", "personalidad", "habilidades", "preferencias"]:
+                if paragraph.strip().startswith(title) or any(t in paragraph_lower for t in [":", "-", "•"] + [title]):
+                    # Mapear título encontrado a sección
+                    if "personal" in title:
+                        sections["personal_info"] += paragraph + "\n\n"
+                    elif "interes" in title:
+                        sections["interests"] += paragraph + "\n\n"
+                    elif "personal" in title:
+                        sections["personality"] += paragraph + "\n\n"
+                    elif "habilidad" in title:
+                        sections["skills"] += paragraph + "\n\n"
+                    elif "prefer" in title:
+                        sections["preferences"] += paragraph + "\n\n"
+                    found_section = True
+                    break
+            
+            if found_section:
+                continue
+            
+            # Si no hay título explícito, usar palabras clave
+            max_matches = 0
+            best_section = "personal_info"  # Sección predeterminada
+            
+            for section, keywords in section_keywords.items():
+                matches = sum(1 for keyword in keywords if keyword in paragraph_lower)
+                if matches > max_matches:
+                    max_matches = matches
+                    best_section = section
+            
+            # Añadir a la mejor sección
+            sections[best_section] += paragraph + "\n\n"
+        
+        # Limpieza final
+        for section in sections:
+            sections[section] = sections[section].strip()
+        
+        return sections 

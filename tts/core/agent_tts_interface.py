@@ -1,6 +1,7 @@
 import logging
 from typing import Optional, Dict, Any, Union
 import os
+import json
 
 # Importaciones para diferentes gestores de TTS
 TTS_MANAGER_AVAILABLE = False
@@ -17,6 +18,52 @@ try:
     SIMPLE_TTS_MANAGER_AVAILABLE = True
 except ImportError:
     pass
+
+# Estado global de TTS (activo/inactivo)
+_TTS_GLOBALLY_ENABLED = True
+_TTS_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'tts_config.json')
+
+def load_tts_config():
+    """Carga la configuración del TTS desde archivo"""
+    global _TTS_GLOBALLY_ENABLED
+    try:
+        if os.path.exists(_TTS_CONFIG_PATH):
+            with open(_TTS_CONFIG_PATH, 'r') as f:
+                config = json.load(f)
+                _TTS_GLOBALLY_ENABLED = config.get('enabled', True)
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Error cargando config TTS: {str(e)}")
+
+def save_tts_config():
+    """Guarda la configuración del TTS en archivo"""
+    try:
+        config = {'enabled': _TTS_GLOBALLY_ENABLED}
+        os.makedirs(os.path.dirname(_TTS_CONFIG_PATH), exist_ok=True)
+        with open(_TTS_CONFIG_PATH, 'w') as f:
+            json.dump(config, f)
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Error guardando config TTS: {str(e)}")
+
+def is_tts_enabled() -> bool:
+    """Comprueba si el TTS está globalmente habilitado"""
+    return _TTS_GLOBALLY_ENABLED
+
+def disable_tts():
+    """Desactiva el TTS globalmente"""
+    global _TTS_GLOBALLY_ENABLED
+    _TTS_GLOBALLY_ENABLED = False
+    save_tts_config()
+    logging.getLogger(__name__).info("TTS desactivado globalmente")
+
+def enable_tts():
+    """Activa el TTS globalmente"""
+    global _TTS_GLOBALLY_ENABLED
+    _TTS_GLOBALLY_ENABLED = True
+    save_tts_config()
+    logging.getLogger(__name__).info("TTS activado globalmente")
+
+# Cargar la configuración inicial
+load_tts_config()
 
 class AgentTTSInterface:
     """
@@ -79,6 +126,15 @@ class AgentTTSInterface:
         Returns:
             Diccionario con información sobre el audio generado.
         """
+        # Si el TTS está globalmente desactivado, devolver respuesta de texto solamente
+        if not _TTS_GLOBALLY_ENABLED:
+            return {
+                "success": False,
+                "disabled": True,
+                "agent": agent_name,
+                "text": text
+            }
+        
         # Inicializar parámetros
         params = tts_params or {}
         
@@ -152,13 +208,23 @@ class AgentTTSInterface:
         Returns:
             Texto preprocesado.
         """
-        # Se puede implementar cualquier preprocesamiento necesario
-        # Por ejemplo, añadir pausas, formatear números, etc.
+        # Simplificar el texto eliminando prefijos formales o repetitivos
+        # Reducir prefijos formales en el texto para evitar repeticiones
+        # Eliminar prefijos comunes que hacen el diálogo menos natural
+        prefixes_to_remove = [
+            f"Soy {agent_name}. ",
+            f"Soy {agent_name}, ",
+            f"{agent_name}: ",
+            "Hola, soy tu asistente. ",
+            "Como tu asistente, ",
+            "En mi rol de asistente, "
+        ]
         
-        # Ejemplo simple: añadir un prefijo de agente si no está ya incluido
-        if not text.startswith(f"{agent_name}:") and not text.startswith(f"Soy {agent_name}"):
-            text = f"Soy {agent_name}. {text}"
-            
+        for prefix in prefixes_to_remove:
+            if text.startswith(prefix):
+                text = text[len(prefix):]
+                break
+        
         return text
     
     def get_voice_for_agent(self, agent_name: str) -> str:
@@ -177,7 +243,9 @@ class AgentTTSInterface:
             "Echo TTS": "Carlos",
             "CodeAgent": "John",
             "SystemAgent": "María",
-            "OrchestratorAgent": "Sarah"
+            "OrchestratorAgent": "Sarah",
+            "V.I.O.": "Carlos",  # Voz específica para V.I.O.
+            "main_assistant": "Carlos"
         }
         
         # Devolver la voz asignada o usar la voz por defecto

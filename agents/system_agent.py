@@ -298,6 +298,12 @@ class SystemAgent(BaseAgent):
         """
         query = query.lower()
         
+        # Detectar solicitudes de programación/código en Python que usen datos del sistema
+        if ("program" in query or "código" in query or "programa" in query) and "python" in query:
+            # Si es una solicitud para crear un programa Python que use datos del sistema,
+            # delegamos a system_info para proporcionar la información necesaria
+            return "system_info"
+        
         if any(x in query for x in ["execute", "run", "command", "terminal", "cmd", "shell"]):
             return "execute_command"
         elif any(x in query for x in ["read", "cat", "show contents", "display file"]):
@@ -310,7 +316,7 @@ class SystemAgent(BaseAgent):
             return "system_info"
         elif any(x in query for x in ["process", "running", "task", "memory usage"]):
             return "process_info"
-        elif any(x in query for x in ["launch", "start", "open", "application", "program", "app"]):
+        elif any(x in query for x in ["launch", "start", "open", "application", "program", "app"]) and "python" not in query:
             return "launch_app"
         else:
             # Default action

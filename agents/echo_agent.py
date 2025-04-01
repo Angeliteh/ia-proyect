@@ -20,6 +20,20 @@ class EchoAgent(BaseAgent):
     without requiring complex model integrations.
     """
     
+    def __init__(self, agent_id: str = "echo", config: Dict = None):
+        """
+        Initialize the echo agent.
+        
+        Args:
+            agent_id: Unique identifier for the agent (default 'echo')
+            config: Additional configuration (optional)
+        """
+        super().__init__(agent_id, config or {})
+        
+        # Lista para almacenar mensajes recibidos (útil para pruebas)
+        self._received_messages = []
+        self.max_stored_messages = config.get("max_stored_messages", 20)
+    
     async def process(self, query: str, context: Optional[Dict] = None) -> AgentResponse:
         """
         Process the query by echoing it back.
@@ -33,6 +47,9 @@ class EchoAgent(BaseAgent):
         """
         self.logger.info(f"Processing query with echo agent: {query[:30]}...")
         self.set_state("processing")
+        
+        # Almacenar el mensaje recibido para pruebas
+        self._store_received_message(query, context)
         
         # Simular un pequeño retraso para realismo
         await asyncio.sleep(0.1)
@@ -108,6 +125,59 @@ class EchoAgent(BaseAgent):
         self.set_state("idle")
         return response
     
+    def _store_received_message(self, query: str, context: Optional[Dict] = None):
+        """
+        Almacena el mensaje recibido para pruebas y depuración.
+        
+        Args:
+            query: El mensaje recibido
+            context: El contexto del mensaje
+        """
+        # Crear un registro del mensaje con timestamp
+        message_record = {
+            "query": query,
+            "context": context or {},
+            "timestamp": datetime.now().isoformat(),
+            "agent_id": self.agent_id
+        }
+        
+        # Añadir a la lista de mensajes recibidos
+        self._received_messages.append(message_record)
+        
+        # Limitar el número de mensajes almacenados
+        if len(self._received_messages) > self.max_stored_messages:
+            self._received_messages.pop(0)  # Eliminar el más antiguo
+            
+        self.logger.debug(f"Mensaje almacenado. Total de mensajes: {len(self._received_messages)}")
+    
+    async def _handle_message(self, message):
+        """
+        Manejador personalizado para mensajes de comunicación entre agentes.
+        
+        Sobrescribe el método de la clase base para asegurar que los mensajes
+        se registren adecuadamente.
+        
+        Args:
+            message: El mensaje recibido
+            
+        Returns:
+            Respuesta al mensaje o None
+        """
+        # Registrar el mensaje para pruebas
+        if isinstance(message, dict):
+            self._store_received_message(
+                message.get("content", ""),
+                message
+            )
+        elif hasattr(message, "content") and hasattr(message, "to_dict"):
+            self._store_received_message(
+                message.content,
+                message.to_dict()
+            )
+        
+        # Delegar al manejador de la clase base
+        return await super()._handle_message(message)
+    
     def _handle_planning_request(self, query: str, context: Dict) -> str:
         """
         Maneja solicitudes de planificación proporcionando un plan estructurado.
@@ -165,4 +235,24 @@ class EchoAgent(BaseAgent):
         Returns:
             List containing the 'echo' capability
         """
-        return ["echo", "tts_enabled" if self.has_tts() else "tts_disabled"] 
+        return ["echo", "tts_enabled" if self.has_tts() else "tts_disabled"]
+    
+    def get_received_messages(self) -> List[Dict]:
+        """
+        Obtiene la lista de mensajes recibidos.
+        
+        Útil para pruebas y verificación.
+        
+        Returns:
+            Lista de mensajes recibidos
+        """
+        return self._received_messages.copy()
+    
+    def clear_received_messages(self) -> None:
+        """
+        Limpia la lista de mensajes recibidos.
+        
+        Útil para reiniciar el estado entre pruebas.
+        """
+        self._received_messages.clear()
+        self.logger.info("Lista de mensajes recibidos limpiada") 
